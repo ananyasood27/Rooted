@@ -93,9 +93,9 @@ class AppState: ObservableObject {
 
     /// The reward for the *next* completion of this task today — grows with repeats, then plateaus.
     func nextReward(for task: EcoTask) -> Int {
-        let repeatIndex = min(task.completionsToday, comboCap)
-        let bonus = Int(Double(task.coinReward) * comboBonusRate) * repeatIndex
-        return task.coinReward + bonus
+    let repeatIndex = max(0, min(task.completionsToday, comboCap)) // clamp to 0...comboCap
+    let bonus = Double(task.coinReward) * comboBonusRate * Double(repeatIndex)
+    return task.coinReward + Int(bonus)
     }
 
     /// Complete a task (repeatable). Awards a growing combo bonus for same-day repeats,
