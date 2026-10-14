@@ -6,10 +6,13 @@ struct ShopView: View {
     let columns = [GridItem(.adaptive(minimum: 110), spacing: 12)]
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
+
+                    SectionLabel(text: "Plants & garden items")
+                        .padding(.bottom, -6)
 
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(appState.shopItems) { item in
@@ -57,21 +60,22 @@ private struct ShopItemCard: View {
 
     private var canAfford: Bool { appState.coins >= item.cost }
 
+    private var previewScale: CGFloat {
+        let art = item.kind.footprint(stage: 3)
+        return min(112 / art.width, 108 / art.height, 1.7)
+    }
+
     var body: some View {
         VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [item.color.opacity(0.22), item.color.opacity(0.08)],
-                            center: .center, startRadius: 2, endRadius: 34
-                        )
-                    )
-                    .frame(width: 60, height: 60)
-                Image(systemName: item.icon)
-                    .font(.system(size: 25))
-                    .foregroundColor(item.color)
+            // Preview the fully grown item, scaled so small and large art fill the card alike.
+            ZStack(alignment: .bottom) {
+                Ellipse()
+                    .fill(Theme.sage.opacity(0.30))
+                    .frame(width: 70, height: 14)
+                PlantSprite(kind: item.kind, stage: 3, size: 66)
+                    .scaleEffect(previewScale, anchor: PlantSprite.groundAnchor)
             }
+            .frame(height: 76)
 
             Text(item.name)
                 .font(Theme.display(13, weight: .semibold))
@@ -107,15 +111,7 @@ private struct ShopItemCard: View {
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(item.color.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(color: Theme.bark.opacity(0.05), radius: 8, y: 3)
+        .ecoCard()
         .scaleEffect(justBought ? 1.05 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.5), value: justBought)
     }

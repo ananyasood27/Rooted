@@ -5,13 +5,13 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if appState.hasOnboarded {
+            if appState.isLoggedIn {
                 MainTabView()
             } else {
                 WelcomeView()
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: appState.hasOnboarded)
+        .animation(.easeInOut(duration: 0.35), value: appState.isLoggedIn)
     }
 }
 

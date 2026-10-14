@@ -5,9 +5,10 @@ import SwiftUI
 struct InfoView: View {
 @EnvironmentObject var appState: AppState
 @Environment(\.dismiss) private var dismiss
+@State private var showNotificationsDenied = false
 
 var body: some View {
-NavigationView {
+NavigationStack {
 ScrollView {
 VStack(alignment: .leading, spacing: 22) {
 heroSection
@@ -21,7 +22,7 @@ text: "EcoGarden turns everyday sustainability habits — recycling, composting,
 InfoSection(
 icon: "checkmark.circle.fill",
 title: "How it works",
-text: "Complete tasks in the Tasks tab to earn coins — you can repeat tasks daily for a growing bonus. Spend coins in the Shop on plants and garden items, then place them anywhere in your yard. Water your plants to keep them healthy and help them grow through four stages, from sprout to full bloom."
+text: "Complete tasks in the Tasks tab to earn coins — you can repeat tasks daily for a growing bonus, and attach a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt."
 )
 
 InfoSection(
@@ -32,7 +33,13 @@ text: "Clear every task at least once in a day to earn a bonus and build your st
 
 localImpactSection
 
+impactSection
+
 statsSection
+
+remindersSection
+
+accountSection
 
 InfoSection(
 icon: "info.circle.fill",
@@ -83,7 +90,7 @@ Text("Local Impact")
 .font(Theme.display(16, weight: .semibold))
 .foregroundColor(Theme.bark)
 }
-Text("Each task links to a real local resource. Open a task in the Tasks tab and tap it to see the tip.")
+Text("EcoGarden is built for Baytown, Texas. Every task points to a real local resource — the city's Green Center, curbside recycling, the Goose Creek Trail, Harris County Transit. Tap a task in the Tasks tab to see its tip and open the official page.")
 .font(Theme.body(13))
 .foregroundColor(Theme.stone)
 .fixedSize(horizontal: false, vertical: true)
@@ -93,12 +100,116 @@ Text("Each task links to a real local resource. Open a task in the Tasks tab and
 .ecoCard()
 }
 
+private var impactSection: some View {
+VStack(alignment: .leading, spacing: 10) {
+HStack(spacing: 8) {
+Image(systemName: "globe.americas.fill")
+.foregroundColor(Theme.moss)
+Text("Your Impact")
+.font(Theme.display(16, weight: .semibold))
+.foregroundColor(Theme.bark)
+}
+ImpactTiles(impact: appState.impact)
+Text("How this is estimated: each walk or bike trip counts as a 2-mile car trip avoided, at the EPA's average of about 400 grams of CO₂ per mile. Each water task counts as a shower 2 minutes shorter, at the federal standard showerhead flow of 2.5 gallons per minute (EPA WaterSense). Recycling, composting, reusing and donating each count as one item kept out of the landfill.")
+.font(Theme.body(11.5))
+.foregroundColor(Theme.stone)
+.fixedSize(horizontal: false, vertical: true)
+}
+.padding(16)
+.frame(maxWidth: .infinity, alignment: .leading)
+.ecoCard()
+}
+
+private var remindersSection: some View {
+VStack(alignment: .leading, spacing: 10) {
+// The toggle can't write to appState directly, because switching it on has to wait
+// for the system permission prompt — so it goes through setReminders instead.
+Toggle(isOn: Binding(
+get: { appState.remindersEnabled },
+set: { wantsOn in
+appState.setReminders(wantsOn, denied: { showNotificationsDenied = true })
+}
+)) {
+HStack(spacing: 8) {
+Image(systemName: "bell.fill")
+.foregroundColor(Theme.moss)
+Text("Reminders")
+.font(Theme.display(16, weight: .semibold))
+.foregroundColor(Theme.bark)
+}
+}
+.tint(Theme.moss)
+Text("A nudge at 6 PM to finish your tasks, and an alert when something in your garden needs care.")
+.font(Theme.body(13))
+.foregroundColor(Theme.stone)
+.fixedSize(horizontal: false, vertical: true)
+}
+.padding(16)
+.frame(maxWidth: .infinity, alignment: .leading)
+.ecoCard()
+.alert("Notifications are turned off", isPresented: $showNotificationsDenied) {
+Button("OK", role: .cancel) { }
+} message: {
+Text("To get reminders, allow notifications for EcoGarden in the Settings app.")
+}
+}
+
+// Logging out only locks the app — the garden and progress stay saved on the device.
+private var accountSection: some View {
+VStack(alignment: .leading, spacing: 10) {
+HStack(spacing: 8) {
+Image(systemName: "person.crop.circle.fill")
+.foregroundColor(Theme.moss)
+Text("Account")
+.font(Theme.display(16, weight: .semibold))
+.foregroundColor(Theme.bark)
+}
+Text("Signed in as \(AccountStore.load()?.username ?? appState.userName). Your account and garden are stored only on this device.")
+.font(Theme.body(13))
+.foregroundColor(Theme.stone)
+.fixedSize(horizontal: false, vertical: true)
+Button {
+dismiss()
+appState.logOut()
+} label: {
+Text("Log Out")
+.font(Theme.display(14, weight: .semibold))
+.foregroundColor(Theme.ember)
+.padding(.horizontal, 16)
+.padding(.vertical, 9)
+.background(Capsule().fill(Theme.ember.opacity(0.12)))
+}
+.buttonStyle(.plain)
+}
+.padding(16)
+.frame(maxWidth: .infinity, alignment: .leading)
+.ecoCard()
+}
+
 private var statsSection: some View {
 HStack(spacing: 10) {
-StatTile(label: "Day Streak", value: "\(appState.streak)", icon: "flame.fill", color: Color(red: 0.85, green: 0.45, blue: 0.20))
+StatTile(label: "Day Streak", value: "\(appState.streak)", icon: "flame.fill", color: Theme.ember)
 StatTile(label: "Planted", value: "\(appState.placedItems.count)", icon: "leaf.fill", color: Theme.moss)
 StatTile(label: "EcoCoins", value: "\(appState.coins)", icon: "circle.fill", color: Theme.sunflower)
 }
+}
+}
+
+/// The three headline impact numbers, shown on the Tasks tab and the About page.
+struct ImpactTiles: View {
+let impact: ImpactSummary
+
+var body: some View {
+HStack(spacing: 10) {
+StatTile(label: "CO₂ avoided", value: "\(Self.format(impact.co2Pounds)) lb", icon: "bicycle", color: Theme.moss)
+StatTile(label: "Water saved", value: "\(Self.format(impact.gallons)) gal", icon: "drop.fill", color: Theme.water)
+StatTile(label: "Kept from landfill", value: "\(impact.itemsDiverted)", icon: "arrow.3.trianglepath", color: Theme.soil)
+}
+}
+
+/// One decimal while the number is small, whole numbers after that.
+private static func format(_ value: Double) -> String {
+value < 10 && value != value.rounded() ? String(format: "%.1f", value) : String(format: "%.0f", value)
 }
 }
 
@@ -147,6 +258,8 @@ Text(label)
 .frame(maxWidth: .infinity)
 .padding(.vertical, 12)
 .ecoCard()
+// Read as one item by VoiceOver ("5.4 lb, CO₂ avoided"), not three separate pieces.
+.accessibilityElement(children: .combine)
 }
 }
 

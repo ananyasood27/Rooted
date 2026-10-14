@@ -7,11 +7,14 @@ struct TaskListView: View {
     @State private var taskPendingPhoto: EcoTask? = nil
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var showProofChoice: EcoTask? = nil
+    @State private var showPhotoPicker = false
+    @State private var photoFailed = false
+    @State private var proofOnDisplay: ProofPhoto? = nil
     @State private var showInfo = false
     @State private var expandedTaskID: UUID? = nil
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
@@ -20,12 +23,13 @@ struct TaskListView: View {
                         celebrationBanner
                     }
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionLabel(text: "Your impact so far")
+                        ImpactTiles(impact: appState.impact)
+                    }
+
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("TODAY")
-                            .font(Theme.caption(11))
-                            .foregroundColor(Theme.stone)
-                            .tracking(1)
-                            .padding(.leading, 2)
+                        SectionLabel(text: "Today")
 
                         VStack(spacing: 10) {
                             ForEach(appState.tasks) { task in
@@ -34,6 +38,11 @@ struct TaskListView: View {
                                     nextReward: appState.nextReward(for: task),
                                     isExpanded: expandedTaskID == task.id,
                                     onComplete: { showProofChoice = task },
+                                    onShowProof: {
+                                        if let fileName = task.proofFileName {
+                                            proofOnDisplay = ProofPhoto(fileName: fileName, title: task.title)
+                                        }
+                                    },
                                     onToggleExpand: {
                                         withAnimation(.easeInOut(duration: 0.2)) {
                                             expandedTaskID = (expandedTaskID == task.id) ? nil : task.id
@@ -82,10 +91,13 @@ struct TaskListView: View {
                 Button("Attach Photo") {
                     taskPendingPhoto = showProofChoice
                     showProofChoice = nil
+                    // Give the dialog a moment to finish closing — opening the picker
+                    // while it is still on screen can fail silently.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showPhotoPicker = true }
                 }
                 Button("Mark Complete (No Photo)") {
                     if let task = showProofChoice {
-                        appState.completeTask(task, proofImage: nil)
+                        appState.completeTask(task, proofFile: nil)
                     }
                     showProofChoice = nil
                 }
@@ -93,22 +105,32 @@ struct TaskListView: View {
                     showProofChoice = nil
                 }
             }
-            .photosPicker(
-                isPresented: Binding(
-                    get: { taskPendingPhoto != nil },
-                    set: { if !$0 { taskPendingPhoto = nil } }
-                ),
-                selection: $selectedPhotoItem,
-                matching: .images
-            )
-            .onChange(of: selectedPhotoItem) { newItem in
-                guard let task = taskPendingPhoto, let newItem else { return }
+            // The picker's open/closed state is kept separate from `taskPendingPhoto`:
+            // the picker closes itself the moment a photo is chosen, and the task must
+            // still be remembered when the choice arrives just after.
+            .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                guard let newItem, let task = taskPendingPhoto else { return }
+                selectedPhotoItem = nil
+                taskPendingPhoto = nil
                 Task {
                     let data = try? await newItem.loadTransferable(type: Data.self)
-                    appState.completeTask(task, proofImage: data)
-                    taskPendingPhoto = nil
-                    selectedPhotoItem = nil
+                    // Shrinking and saving a full-size photo is slow — keep it off the main thread.
+                    let fileName = await Task.detached { data.flatMap(ProofStore.save) }.value
+                    if let fileName {
+                        appState.completeTask(task, proofFile: fileName)
+                    } else {
+                        photoFailed = true
+                    }
                 }
+            }
+            .alert("Couldn't use that photo", isPresented: $photoFailed) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("The task wasn't marked complete. Try another photo, or complete it without one.")
+            }
+            .sheet(item: $proofOnDisplay) { proof in
+                ProofViewer(proof: proof)
             }
         }
     }
@@ -127,14 +149,14 @@ struct TaskListView: View {
                 if appState.streak > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
-                            .foregroundColor(Color(red: 0.85, green: 0.45, blue: 0.20))
+                            .foregroundColor(Theme.ember)
                         Text("\(appState.streak)")
                             .font(Theme.display(14, weight: .semibold))
                             .foregroundColor(Theme.bark)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(red: 0.85, green: 0.45, blue: 0.20).opacity(0.14)))
+                    .background(Capsule().fill(Theme.ember.opacity(0.14)))
                 }
             }
 
@@ -212,6 +234,7 @@ private struct TaskRow: View {
     let nextReward: Int
     let isExpanded: Bool
     let onComplete: () -> Void
+    let onShowProof: () -> Void
     let onToggleExpand: () -> Void
 
     private var done: Bool { task.completionsToday >= 1 }
@@ -236,6 +259,13 @@ private struct TaskRow: View {
                         .font(Theme.body(12.5))
                         .foregroundColor(Theme.stone)
                         .lineLimit(2)
+
+                    if task.completionsToday == 0, let bonus = task.kind?.gardenBonusText {
+                        Label(bonus, systemImage: "leaf.fill")
+                            .font(Theme.caption(11))
+                            .foregroundColor(Theme.moss)
+                            .padding(.top, 1)
+                    }
 
                     if task.completionsToday > 0 {
                         Text("Done \(task.completionsToday)× today")
@@ -265,17 +295,63 @@ private struct TaskRow: View {
             .contentShape(Rectangle())
             .onTapGesture { if !task.localTip.isEmpty { onToggleExpand() } }
 
+            if let fileName = task.proofFileName, let photo = ProofStore.image(named: fileName) {
+                Button(action: onShowProof) {
+                    HStack(spacing: 10) {
+                        Image(uiImage: photo)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 40, height: 40)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Photo proof")
+                                .font(Theme.caption(11))
+                                .foregroundColor(Theme.bark)
+                            if let date = task.proofDate {
+                                Text(date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(Theme.body(11))
+                                    .foregroundColor(Theme.stone)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Theme.stone)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View photo proof for \(task.title)")
+            }
+
             if isExpanded && !task.localTip.isEmpty {
                 Divider().padding(.horizontal, 14)
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.moss)
-                        .padding(.top, 1)
-                    Text(task.localTip)
-                        .font(Theme.body(12))
-                        .foregroundColor(Theme.stone)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.moss)
+                            .padding(.top, 1)
+                        Text(task.localTip)
+                            .font(Theme.body(12))
+                            .foregroundColor(Theme.stone)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let link = task.localURL, let url = URL(string: link) {
+                        Link(destination: url) {
+                            HStack(spacing: 4) {
+                                Text("Open the local page")
+                                Image(systemName: "arrow.up.right")
+                            }
+                            .font(Theme.caption(11))
+                            .foregroundColor(Theme.moss)
+                        }
+                        .padding(.leading, 20)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             } else if !task.localTip.isEmpty {
@@ -290,15 +366,40 @@ private struct TaskRow: View {
                 .padding(.bottom, 10)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(Theme.sage.opacity(0.25), lineWidth: 1)
-        )
-        .shadow(color: Theme.bark.opacity(0.05), radius: 8, y: 3)
+        .ecoCard()
+    }
+}
+
+/// A saved proof photo, for showing full-size.
+private struct ProofPhoto: Identifiable {
+    let fileName: String
+    let title: String
+    var id: String { fileName }
+}
+
+private struct ProofViewer: View {
+    let proof: ProofPhoto
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                if let photo = ProofStore.image(named: proof.fileName) {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFit()
+                }
+            }
+            .navigationTitle(proof.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 
