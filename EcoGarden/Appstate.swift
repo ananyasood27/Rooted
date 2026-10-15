@@ -38,6 +38,41 @@ class AppState: ObservableObject {
     @Published var lifetimeCompletions: [String: Int] {
         didSet { save() }
     }
+    /// Every logged stretch of volunteering — builds the places on the community street.
+    @Published var volunteerLog: [VolunteerEntry] {
+        didSet { save() }
+    }
+    /// Which tab is showing, so other screens can send you somewhere (e.g. a building's
+    /// "Find ways to help" button opens the Volunteer tab). Not saved.
+    @Published var selectedTab: AppTab = .doGood
+    /// Which half of the Do Good tab is showing. Not saved.
+    @Published var doGoodSegment: DoGoodSegment = .habits
+    /// The item just bought in the Shop, so the garden can point it out. Not saved.
+    @Published var newlyPlacedID: UUID? = nil
+    /// Good-news messages waiting to be shown one at a time (see CelebrationBanner). Not saved.
+    @Published var celebrations: [String] = []
+    /// When each eco task was completed recently — used for the weekly challenge.
+    @Published var ecoCompletionDates: [Date] {
+        didSet { save() }
+    }
+    /// Community points from things other than tasks and hours (weekly challenge rewards).
+    @Published var bonusPoints: Int {
+        didSet { save() }
+    }
+    /// The week ("2026-42") whose challenge reward was last paid out.
+    @Published var lastChallengeWeek: String {
+        didSet { save() }
+    }
+    /// The community level the user has already been told about, so each level-up is announced once.
+    @Published var lastSeenCommunityLevel: Int {
+        didSet { save() }
+    }
+    /// Street upgrade tier the user has already seen, per habit — anything higher shows as NEW.
+    @Published var seenUpgradeTiers: [String: Int] {
+        didSet { save() }
+    }
+    /// Set to pre-filter the Volunteer tab when opening it from a building.
+    @Published var volunteerFocus: VolunteerCategory? = nil
     /// Whether the user has turned on reminder notifications (see Reminders.swift).
     @Published var remindersEnabled: Bool {
         didSet {
@@ -65,6 +100,12 @@ class AppState: ObservableObject {
     private let lifetimeKey = "ecogarden.lifetimeCompletions"
     private let loggedInKey = "ecogarden.isLoggedIn"
     private let remindersKey = "ecogarden.remindersEnabled"
+    private let volunteerKey = "ecogarden.volunteerLog"
+    private let ecoDatesKey = "ecogarden.ecoCompletionDates"
+    private let bonusPointsKey = "ecogarden.bonusPoints"
+    private let challengeWeekKey = "ecogarden.lastChallengeWeek"
+    private let seenLevelKey = "ecogarden.lastSeenCommunityLevel"
+    private let seenUpgradesKey = "ecogarden.seenUpgradeTiers"
 
     /// Number of repeats after which the combo bonus stops growing (still completable, just flat).
     private let comboCap = 4
@@ -72,9 +113,10 @@ class AppState: ObservableObject {
     private let comboBonusRate = 0.25
     private let fullClearBonus = 20
     let wateringCost = 5
+    static let coinsPerVolunteerHour = 10
     /// Normalized vertical band of the garden canvas that is actually ground —
     /// above this is fence, hills and sky, where nothing can be planted.
-    static let yardYRange: ClosedRange<Double> = 0.39...0.95
+    static let yardYRange: ClosedRange<Double> = 0.40...0.95
 
     init() {
         var movedOldPhotos = false
@@ -130,6 +172,17 @@ class AppState: ObservableObject {
         self.streak = defaults.integer(forKey: streakKey)
         self.lastFullClearDate = defaults.object(forKey: lastClearKey) as? Date
         self.lifetimeCompletions = defaults.dictionary(forKey: lifetimeKey) as? [String: Int] ?? [:]
+        if let data = defaults.data(forKey: volunteerKey),
+           let decoded = try? JSONDecoder().decode([VolunteerEntry].self, from: data) {
+            self.volunteerLog = decoded
+        } else {
+            self.volunteerLog = []
+        }
+        self.ecoCompletionDates = (defaults.array(forKey: ecoDatesKey) as? [Date]) ?? []
+        self.bonusPoints = defaults.integer(forKey: bonusPointsKey)
+        self.lastChallengeWeek = defaults.string(forKey: challengeWeekKey) ?? ""
+        self.lastSeenCommunityLevel = defaults.integer(forKey: seenLevelKey)
+        self.seenUpgradeTiers = defaults.dictionary(forKey: seenUpgradesKey) as? [String: Int] ?? [:]
 
         // If more than a full day was missed since the last clear, the streak breaks.
         if let last = lastFullClearDate {
@@ -140,6 +193,13 @@ class AppState: ObservableObject {
             if daysBetween > 1 {
                 self.streak = 0
             }
+        }
+
+        // First launch with levels and upgrades: count what's already earned as seen,
+        // so nobody gets a pile of "level up!" messages for old progress.
+        if defaults.object(forKey: seenLevelKey) == nil {
+            lastSeenCommunityLevel = communityLevel
+            seenUpgradeTiers = currentUpgradeTiers
         }
 
         if movedOldPhotos { save() }
@@ -183,6 +243,19 @@ class AppState: ObservableObject {
         for task in tasks {
             if let photo = task.proofFileName { ProofStore.delete(named: photo) }
         }
+        for entry in volunteerLog {
+            if let photo = entry.proofFileName { ProofStore.delete(named: photo) }
+        }
+        volunteerLog = []
+        selectedTab = .doGood
+        doGoodSegment = .habits
+        newlyPlacedID = nil
+        celebrations = []
+        ecoCompletionDates = []
+        bonusPoints = 0
+        lastChallengeWeek = ""
+        lastSeenCommunityLevel = 0
+        seenUpgradeTiers = [:]
         tasks = EcoTask.starterTasks
         coins = 0
         placedItems = []
@@ -220,7 +293,12 @@ class AppState: ObservableObject {
             tasks[index].proofDate = Date()
         }
         if let kind = tasks[index].kind {
+            let tierBefore = kind.upgradeTier(forCount: lifetimeCompletions[kind.rawValue] ?? 0)
             lifetimeCompletions[kind.rawValue, default: 0] += 1
+            let tierAfter = kind.upgradeTier(forCount: lifetimeCompletions[kind.rawValue] ?? 0)
+            if tierAfter > tierBefore {
+                celebrations.append("New on your street: \(kind.upgradeNames[tierAfter - 1])! Go see it in Community.")
+            }
             // The first completion each day also tends the matching garden items.
             // Only the first, so repeating a task can't max out a garden in one sitting.
             if tasks[index].completionsToday == 1, let itemKind = kind.tendsItem {
@@ -228,8 +306,12 @@ class AppState: ObservableObject {
             }
         }
         coins += reward
+        // Only the last 60 days matter for weekly challenges.
+        let cutoff = Date().addingTimeInterval(-60 * 86_400)
+        ecoCompletionDates = ecoCompletionDates.filter { $0 > cutoff } + [Date()]
 
         checkFullClearBonus()
+        checkProgress()
     }
 
     /// Estimated real-world effect of everything completed so far.
@@ -241,7 +323,118 @@ class AppState: ObservableObject {
             total.gallons += kind.gallonsSaved * Double(count)
             if kind.keepsItemOutOfLandfill { total.itemsDiverted += count }
         }
+        total.volunteerHours = volunteerLog.reduce(0) { $0 + $1.hours }
         return total
+    }
+
+    // MARK: - Volunteering
+
+    /// Saves some volunteering and pays out coins for it. Hours are kept between half an
+    /// hour and 8 hours per entry, so one entry can't build a whole place by itself.
+    func logVolunteering(category: VolunteerCategory, organization: String, opportunityID: String?,
+                         hours: Double, date: Date, proofFile: String?) {
+        let clampedHours = min(max(hours, 0.5), 8)
+        volunteerLog.append(VolunteerEntry(
+            category: category,
+            organization: organization,
+            opportunityID: opportunityID,
+            hours: clampedHours,
+            date: date,
+            proofFileName: proofFile
+        ))
+        coins += Int((clampedHours * Double(Self.coinsPerVolunteerHour)).rounded())
+        checkProgress()
+    }
+
+    // MARK: - Community level, street upgrades and weekly challenge
+
+    /// Points from everything: each eco task, each volunteer hour, and challenge bonuses.
+    var communityPoints: Int {
+        let tasksDone = lifetimeCompletions.values.reduce(0, +)
+        let hours = volunteerLog.reduce(0) { $0 + $1.hours }
+        return tasksDone * CommunityLevel.pointsPerTask
+            + Int(hours * Double(CommunityLevel.pointsPerVolunteerHour))
+            + bonusPoints
+    }
+
+    var communityLevel: Int { CommunityLevel.level(forPoints: communityPoints) }
+
+    func upgradeTier(for kind: EcoTaskKind) -> Int {
+        kind.upgradeTier(forCount: lifetimeCompletions[kind.rawValue] ?? 0)
+    }
+
+    private var currentUpgradeTiers: [String: Int] {
+        Dictionary(uniqueKeysWithValues: EcoTaskKind.allCases.map { ($0.rawValue, upgradeTier(for: $0)) })
+    }
+
+    /// True if this habit's street fixture has changed since the user last tapped it.
+    func upgradeIsNew(_ kind: EcoTaskKind) -> Bool {
+        upgradeTier(for: kind) > (seenUpgradeTiers[kind.rawValue] ?? 0)
+    }
+
+    func markUpgradeSeen(_ kind: EcoTaskKind) {
+        seenUpgradeTiers[kind.rawValue] = upgradeTier(for: kind)
+    }
+
+    var weeklyChallenge: WeeklyChallenge { WeeklyChallenge.forWeek(of: Date()) }
+
+    private var thisWeek: DateInterval? {
+        Calendar.current.dateInterval(of: .weekOfYear, for: Date())
+    }
+
+    var ecoTasksThisWeek: Int {
+        guard let week = thisWeek else { return 0 }
+        return ecoCompletionDates.filter { week.contains($0) }.count
+    }
+
+    var volunteerHoursThisWeek: Double {
+        guard let week = thisWeek else { return 0 }
+        return volunteerLog.filter { week.contains($0.date) }.reduce(0) { $0 + $1.hours }
+    }
+
+    var weeklyChallengeDone: Bool {
+        lastChallengeWeek == WeeklyChallenge.weekKey(for: Date())
+    }
+
+    /// For the demo bar: push the community toward its next level.
+    func addDemoPoints() {
+        bonusPoints += 10
+        checkProgress()
+    }
+
+    /// Runs after anything that earns progress: pays out the weekly challenge (once a week)
+    /// and announces a community level-up (once per level).
+    private func checkProgress() {
+        let challenge = weeklyChallenge
+        if !weeklyChallengeDone,
+           ecoTasksThisWeek >= challenge.ecoGoal,
+           volunteerHoursThisWeek >= challenge.hoursGoal {
+            lastChallengeWeek = WeeklyChallenge.weekKey(for: Date())
+            coins += WeeklyChallenge.rewardCoins
+            bonusPoints += WeeklyChallenge.rewardPoints
+            celebrations.append("Weekly challenge complete! +\(WeeklyChallenge.rewardCoins) coins and +\(WeeklyChallenge.rewardPoints) community points.")
+        }
+
+        let level = communityLevel
+        if level > lastSeenCommunityLevel {
+            lastSeenCommunityLevel = level
+            celebrations.append("Your community is now \(CommunityLevel.names[level])! \(CommunityLevel.unlocks[level]) unlocked.")
+        }
+    }
+
+    func volunteerHours(in category: VolunteerCategory) -> Double {
+        volunteerLog.filter { $0.category == category }.reduce(0) { $0 + $1.hours }
+    }
+
+    func lastVolunteered(in category: VolunteerCategory) -> Date? {
+        volunteerLog.filter { $0.category == category }.map(\.date).max()
+    }
+
+    /// Lively = you've volunteered for this place in the last two weeks. Uses `now`,
+    /// so the demo controls can fast-forward a place into going quiet.
+    func isLively(_ category: VolunteerCategory) -> Bool {
+        guard let last = lastVolunteered(in: category) else { return false }
+        return now.timeIntervalSince(last) < VolunteerCategory.livelyDays * 86_400
     }
 
     var allTasksCompletedToday: Bool {
@@ -288,6 +481,7 @@ class AppState: ObservableObject {
             lastWateredDate: now
         )
         placedItems.append(placed)
+        newlyPlacedID = placed.id
         refreshReminders()
         return true
     }
@@ -322,11 +516,11 @@ class AppState: ObservableObject {
     }
 
     private func randomSpot() -> (x: Double, y: Double) {
-        var best = (x: Double.random(in: 0.15...0.85), y: Double.random(in: 0.42...0.90))
+        var best = (x: Double.random(in: 0.15...0.85), y: Double.random(in: 0.43...0.90))
         var bestDistance = -1.0
 
         for _ in 0..<8 {
-            let candidate = (x: Double.random(in: 0.12...0.88), y: Double.random(in: 0.42...0.90))
+            let candidate = (x: Double.random(in: 0.12...0.88), y: Double.random(in: 0.43...0.90))
             let minDist = placedItems.map { existing in
                 let dx = existing.x - candidate.x
                 let dy = existing.y - candidate.y
@@ -358,5 +552,13 @@ class AppState: ObservableObject {
         defaults.set(lifetimeCompletions, forKey: lifetimeKey)
         defaults.set(isLoggedIn, forKey: loggedInKey)
         defaults.set(remindersEnabled, forKey: remindersKey)
+        if let data = try? JSONEncoder().encode(volunteerLog) {
+            defaults.set(data, forKey: volunteerKey)
+        }
+        defaults.set(ecoCompletionDates, forKey: ecoDatesKey)
+        defaults.set(bonusPoints, forKey: bonusPointsKey)
+        defaults.set(lastChallengeWeek, forKey: challengeWeekKey)
+        defaults.set(lastSeenCommunityLevel, forKey: seenLevelKey)
+        defaults.set(seenUpgradeTiers, forKey: seenUpgradesKey)
     }
 }

@@ -15,8 +15,9 @@ struct GardenView: View {
     @State private var pinchStartZoom: CGFloat? = nil
     @State private var scrollPosition = ScrollPosition()
     @State private var scrollOffset = ScrollOffsetBox()
-    /// Hidden presenter controls — press and hold the "Your Garden" title to show them.
+    /// Hidden presenter controls — press and hold the "Your Community" title to show them.
     @State private var showDemoControls = false
+    @State private var showLevels = false
 
     private var phase: DayPhase { DayPhase(date: now) }
 
@@ -42,7 +43,10 @@ struct GardenView: View {
                     ZStack(alignment: .top) {
                         Color.clear
                             .overlay {
-                                YardBackground(width: canvasWidth, height: canvasHeight, bleed: bleed, phase: phase)
+                                YardBackground(
+                                    width: canvasWidth, height: canvasHeight, bleed: bleed, phase: phase,
+                                    bikeLane: appState.upgradeTier(for: .travel) >= 2
+                                )
                             }
 
                         PlantLayer(canvasSize: CGSize(width: canvasWidth, height: canvasHeight), now: now, phase: phase, zoom: scale)
@@ -58,12 +62,17 @@ struct GardenView: View {
                         }
                     }
                     .frame(width: canvasWidth, height: canvasHeight)
+                    .onAppear { scrollToNewItem(canvasWidth: canvasWidth, scale: scale, viewport: viewport) }
+                    .onChange(of: appState.newlyPlacedID) { _, _ in
+                        scrollToNewItem(canvasWidth: canvasWidth, scale: scale, viewport: viewport)
+                    }
                     .scaleEffect(scale, anchor: .topLeading)
                     .frame(width: canvasWidth * scale, height: canvasHeight * scale, alignment: .topLeading)
                 }
                 .scrollPosition($scrollPosition)
-                // Open on the middle of the yard instead of the top-left corner, which is all sky.
-                .defaultScrollAnchor(.center, for: .initialOffset)
+                // Open on the street and the top of the yard instead of the top-left corner,
+                // which is all sky.
+                .defaultScrollAnchor(UnitPoint(x: 0.5, y: 0.3), for: .initialOffset)
                 .onScrollGeometryChange(for: CGPoint.self) { $0.contentOffset } action: { _, offset in
                     scrollOffset.value = offset
                 }
@@ -92,6 +101,9 @@ struct GardenView: View {
             }
         }
         .overlay(alignment: .bottom) { hintPill }
+        .sheet(isPresented: $showLevels) {
+            CommunityLevelSheet().environmentObject(appState)
+        }
         .onAppear { now = appState.now }
         .onReceive(ticker) { _ in now = appState.now }
         .onChange(of: appState.demoTimeOffset) { _, _ in
@@ -99,25 +111,31 @@ struct GardenView: View {
         }
     }
 
-    /// For recording a demo: skip the garden's clock ahead (to show thirst and nightfall)
-    /// and top up coins, without waiting hours or grinding tasks.
+    /// For recording a demo: skip the clock ahead (to show thirsty plants, nightfall and
+    /// places going quiet) and top up coins, without waiting or grinding tasks.
     private var demoControls: some View {
-        HStack(spacing: 8) {
-            Text("DEMO")
-                .font(Theme.caption(10))
-                .foregroundColor(Theme.sunflower)
-                .tracking(1)
-            Text(now.formatted(date: .omitted, time: .shortened))
-                .font(Theme.caption(12))
-                .foregroundColor(.white)
-            Spacer(minLength: 4)
-            demoButton("+3 hrs") { appState.demoTimeOffset += 3 * 3600 }
-            demoButton("+100 coins") { appState.coins += 100 }
-            demoButton("Reset") { appState.demoTimeOffset = 0 }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("DEMO")
+                    .font(Theme.caption(10))
+                    .foregroundColor(Theme.sunflower)
+                    .tracking(1)
+                Text(now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
+                    .font(Theme.caption(12))
+                    .foregroundColor(.white)
+                Spacer(minLength: 4)
+                demoButton("Reset") { appState.demoTimeOffset = 0 }
+            }
+            HStack(spacing: 8) {
+                demoButton("+3 hrs") { appState.demoTimeOffset += 3 * 3600 }
+                demoButton("+1 week") { appState.demoTimeOffset += 7 * 86_400 }
+                demoButton("+100 coins") { appState.coins += 100 }
+                demoButton("+10 pts") { appState.addDemoPoints() }
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(Capsule().fill(.black.opacity(0.45)))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.black.opacity(0.45)))
         .padding(.horizontal, 14)
     }
 
@@ -131,6 +149,21 @@ struct GardenView: View {
                 .background(Capsule().fill(.white.opacity(0.18)))
         }
         .buttonStyle(.plain)
+    }
+
+    /// Brings the item just bought in the Shop into the middle of the screen.
+    private func scrollToNewItem(canvasWidth: CGFloat, scale: CGFloat, viewport: CGSize) {
+        guard let id = appState.newlyPlacedID,
+              let placed = appState.placedItems.first(where: { $0.id == id }) else { return }
+        // Aim a little above the base so the whole plant is in view, not just its roots.
+        let target = CGPoint(
+            x: max(0, placed.x * canvasWidth * scale - viewport.width / 2),
+            y: max(0, (placed.y * canvasHeight - 50) * scale - viewport.height / 2)
+        )
+        // Wait a beat so this runs after the scroll view's own first layout.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.easeInOut(duration: 0.6)) { scrollPosition.scrollTo(point: target) }
+        }
     }
 
     /// Changes zoom while keeping whatever is at the centre of the screen at the centre.
@@ -185,10 +218,10 @@ struct GardenView: View {
                         .rotationEffect(.degrees(-10))
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Your Garden")
+                    Text("Your Community")
                         .font(Theme.display(17, weight: .bold))
                         .foregroundColor(.white)
-                    Text("\(appState.placedItems.count) planted")
+                    Text("\(appState.placedItems.count) plants · \(placesBuilt) places")
                         .font(Theme.body(11))
                         .foregroundColor(.white.opacity(0.75))
                 }
@@ -200,15 +233,23 @@ struct GardenView: View {
 
             Spacer()
 
-            if appState.streak > 0 {
-                HStack(spacing: 3) {
-                    Image(systemName: "flame.fill").foregroundColor(Theme.ember)
-                    Text("\(appState.streak)").foregroundColor(.white)
+            // Community level, filled by eco tasks and volunteering together.
+            Button { showLevels = true } label: {
+                HStack(spacing: 5) {
+                    LevelRing(
+                        level: appState.communityLevel,
+                        progress: CommunityLevel.progress(forPoints: appState.communityPoints),
+                        size: 22,
+                        light: true
+                    )
+                    Text("Level").foregroundColor(.white)
                 }
                 .font(Theme.display(13, weight: .semibold))
-                .padding(.horizontal, 9).padding(.vertical, 5)
+                .padding(.leading, 4).padding(.trailing, 9).padding(.vertical, 4)
                 .background(Capsule().fill(.white.opacity(0.16)))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Community level \(appState.communityLevel + 1), \(CommunityLevel.names[appState.communityLevel])")
 
             HStack(spacing: 5) {
                 Circle().fill(Theme.sunflower).frame(width: 16, height: 16)
@@ -232,8 +273,13 @@ struct GardenView: View {
         .padding(.top, 6)
     }
 
+    /// Places past the empty-lot stage.
+    private var placesBuilt: Int {
+        VolunteerCategory.allCases.filter { appState.volunteerHours(in: $0) >= 1 }.count
+    }
+
     private var hintPill: some View {
-        Text("Tap to care for a plant • drag to move it • pinch to zoom")
+        Text("Tap anything to learn more • drag plants • pinch to zoom")
             .font(Theme.body(11.5))
             .foregroundColor(.white)
             .padding(.horizontal, 14).padding(.vertical, 8)
@@ -348,6 +394,8 @@ private struct YardBackground: View {
     /// Extra scenery beyond each edge of the yard, only ever seen while overscrolling.
     let bleed: CGSize
     let phase: DayPhase
+    /// Painted once walking or biking reaches its second street upgrade.
+    var bikeLane = false
 
     private let shade = Color(red: 0.05, green: 0.08, blue: 0.24)
 
@@ -375,7 +423,7 @@ private struct YardBackground: View {
                 .opacity(phase == .night ? 0.30 : 1)
                 .offset(x: bleed.width, y: bleed.height)
 
-            YardGround(yard: CGSize(width: width, height: height), sideBleed: bleed.width)
+            YardGround(yard: CGSize(width: width, height: height), sideBleed: bleed.width, bikeLane: bikeLane)
                 .frame(height: height + bleed.height)
                 .offset(y: bleed.height)
 
@@ -515,11 +563,15 @@ private struct BirdShape: Shape {
 }
 
 /// Everything from the horizon down, drawn in one pass: hazy far hills with a treeline,
-/// a nearer hill, a picket fence with a gate gap, the lawn, a dirt path that widens
-/// toward the viewer, and scattered grass tufts, wildflowers and pebbles.
+/// a nearer hill, the community street, a picket fence with a gate gap, the lawn, a dirt
+/// path that widens toward the viewer, and scattered grass tufts, wildflowers and pebbles.
 private struct YardGround: View {
-    /// Fraction of the canvas height where the lawn meets the hills.
-    static let horizon: CGFloat = 0.34
+    /// Fraction of the canvas height where the land meets the hills.
+    static let horizon: CGFloat = 0.30
+    /// Points below the horizon where the community buildings stand (the back of the sidewalk).
+    static let lotLine: CGFloat = 62
+    /// Points below the horizon where the garden fence stands, in front of the street.
+    static let fenceOffset: CGFloat = 128
 
     private static let tufts = scatter(count: 1100, seed: 11)
     private static let wildflowers = scatter(count: 280, seed: 23)
@@ -530,6 +582,7 @@ private struct YardGround: View {
     /// and right, and however much taller its frame is at the bottom.
     let yard: CGSize
     let sideBleed: CGFloat
+    var bikeLane = false
 
     /// Centre of the dirt path at depth t (0 at the fence, 1 at the bottom edge).
     private static func laneCenter(_ t: CGFloat, width: CGFloat) -> CGFloat {
@@ -600,9 +653,43 @@ private struct YardGround: View {
                 )
             )
 
-            // Picket fence along the back of the yard, with a gap where the path comes in
-            let fenceBase = horizon + 14
+            // The community street: sidewalk in front of the building lots, then the road
+            let lotLine = horizon + Self.lotLine
             let gate = ox + Self.laneCenter(0, width: w)
+            ctx.fill(Path(CGRect(x: 0, y: lotLine, width: size.width, height: 9)), with: .color(Color(red: 0.84, green: 0.83, blue: 0.79)))
+            var joint: CGFloat = 0
+            while joint < size.width {
+                ctx.fill(Path(CGRect(x: joint, y: lotLine, width: 1, height: 9)), with: .color(Color(white: 0.70)))
+                joint += 24
+            }
+            let roadTop = lotLine + 9
+            let roadBottom = lotLine + 41
+            ctx.fill(Path(CGRect(x: 0, y: roadTop, width: size.width, height: roadBottom - roadTop)), with: .color(Color(red: 0.36, green: 0.37, blue: 0.40)))
+            var dash: CGFloat = 6
+            while dash < size.width {
+                ctx.fill(Path(CGRect(x: dash, y: (roadTop + roadBottom) / 2 - 1, width: 14, height: 2)), with: .color(Theme.sunflower.opacity(0.9)))
+                dash += 28
+            }
+            if bikeLane {
+                // green bike lane along the far side of the road
+                let laneY = roadBottom - 11
+                ctx.fill(Path(CGRect(x: 0, y: laneY, width: size.width, height: 9)), with: .color(Color(red: 0.36, green: 0.62, blue: 0.42)))
+                ctx.fill(Path(CGRect(x: 0, y: laneY - 1, width: size.width, height: 1)), with: .color(.white.opacity(0.85)))
+                var bikeX: CGFloat = 40
+                while bikeX < size.width {
+                    ctx.draw(Text(Image(systemName: "bicycle")).font(.system(size: 6.5, weight: .bold)).foregroundColor(.white), at: CGPoint(x: bikeX, y: laneY + 4.5))
+                    bikeX += 120
+                }
+            }
+
+            // crosswalk from the garden gate to the sidewalk
+            for i in 0..<5 {
+                ctx.fill(Path(CGRect(x: gate - 12, y: roadTop + 2 + CGFloat(i) * 6, width: 24, height: 3.4)), with: .color(.white.opacity(0.85)))
+            }
+            ctx.fill(Path(CGRect(x: 0, y: roadBottom, width: size.width, height: 3)), with: .color(Color(white: 0.78)))
+
+            // Picket fence along the back of the yard, with a gap where the path comes in
+            let fenceBase = horizon + Self.fenceOffset
             let gateHalf: CGFloat = 13
             let picket = Color(red: 0.93, green: 0.90, blue: 0.82)
             let picketShade = Color(red: 0.74, green: 0.70, blue: 0.60)
@@ -707,7 +794,10 @@ private struct PlantLayer: View {
     let now: Date
     let phase: DayPhase
     let zoom: CGFloat
+    // At most one thing is selected: a plant, or a building on the street.
     @State private var selectedID: UUID? = nil
+    @State private var selectedBuilding: VolunteerCategory? = nil
+    @State private var selectedFixture: EcoTaskKind? = nil
 
     /// Drags are measured in this space so the numbers stay steady while the plant itself moves.
     static let space = "yard"
@@ -716,7 +806,57 @@ private struct PlantLayer: View {
         ZStack {
             Color.clear
                 .contentShape(Rectangle())
-                .onTapGesture { selectedID = nil }
+                .onTapGesture {
+                    selectedID = nil
+                    selectedBuilding = nil
+                    selectedFixture = nil
+                }
+
+            // Trees, streetlights, flags and festival lights from the community level.
+            StreetDecorations(level: appState.communityLevel, isNight: phase == .night)
+                .frame(width: canvasSize.width, height: canvasSize.height)
+                .allowsHitTesting(false)
+                .zIndex(0.15)
+
+            // Fixtures that eco habits add to the street.
+            ForEach(EcoTaskKind.allCases, id: \.self) { kind in
+                let tier = appState.upgradeTier(for: kind)
+                if tier > 0 {
+                    StreetFixture(
+                        kind: kind,
+                        tier: tier,
+                        canvasSize: canvasSize,
+                        phase: phase,
+                        zoom: zoom,
+                        isSelected: selectedFixture == kind,
+                        isNew: appState.upgradeIsNew(kind),
+                        onSelect: {
+                            selectedID = nil
+                            selectedBuilding = nil
+                            selectedFixture = (selectedFixture == kind) ? nil : kind
+                            appState.markUpgradeSeen(kind)
+                        }
+                    )
+                    .zIndex(selectedFixture == kind ? 20 : 0.2)
+                }
+            }
+
+            // The community street behind the fence — built by real volunteering.
+            ForEach(VolunteerCategory.allCases) { category in
+                BuildingLot(
+                    category: category,
+                    canvasSize: canvasSize,
+                    phase: phase,
+                    zoom: zoom,
+                    isSelected: selectedBuilding == category,
+                    onSelect: {
+                        selectedID = nil
+                        selectedFixture = nil
+                        selectedBuilding = (selectedBuilding == category) ? nil : category
+                    }
+                )
+                .zIndex(selectedBuilding == category ? 20 : 0.1)
+            }
 
             ForEach(appState.placedItems) { placed in
                 if let item = appState.shopItems.first(where: { $0.id == placed.itemID }) {
@@ -728,7 +868,13 @@ private struct PlantLayer: View {
                         phase: phase,
                         zoom: zoom,
                         isSelected: selectedID == placed.id,
-                        onSelect: { selectedID = (selectedID == placed.id) ? nil : placed.id }
+                        isNew: appState.newlyPlacedID == placed.id,
+                        onSelect: {
+                            selectedBuilding = nil
+                            selectedFixture = nil
+                            selectedID = (selectedID == placed.id) ? nil : placed.id
+                            if appState.newlyPlacedID == placed.id { appState.newlyPlacedID = nil }
+                        }
                     )
                     .environmentObject(appState)
                     // Lower on the canvas = closer to the viewer = drawn in front.
@@ -750,6 +896,8 @@ private struct DraggablePlant: View {
     let phase: DayPhase
     let zoom: CGFloat
     let isSelected: Bool
+    /// Just bought — gets a pulsing ring and a NEW tag until it's tapped or moved.
+    let isNew: Bool
     let onSelect: () -> Void
 
     @GestureState private var dragOffset: CGSize = .zero
@@ -802,7 +950,18 @@ private struct DraggablePlant: View {
         .animation(.interpolatingSpring(stiffness: 260, damping: 9), value: waterPulse)
         .allowsHitTesting(false)
         .background(alignment: .bottom) { contactShadow }
+        .background(alignment: .bottom) {
+            if isNew {
+                PulseRing(width: max(artSize.width * 1.1, 40))
+                    .offset(y: -(groundInset - max(artSize.width * 1.1, 40) * 0.16))
+            }
+        }
         .overlay(alignment: .bottom) { touchArea }
+        .overlay(alignment: .bottom) {
+            if isNew && !isSelected {
+                NewTag().offset(y: -(groundInset + artSize.height + 8))
+            }
+        }
         .overlay(alignment: .bottom) { levelPips.offset(y: 5) }
         .overlay(alignment: .bottom) {
             if isThirsty && !isSelected {
@@ -891,6 +1050,7 @@ private struct DraggablePlant: View {
                             let newX = (basePosition.x + value.translation.width) / canvasSize.width
                             let newY = (basePosition.y + value.translation.height) / canvasSize.height
                             appState.moveItem(id: placed.id, x: newX, y: newY)
+                            if isNew { appState.newlyPlacedID = nil }
                         }
                         isDragging = false
                     }
@@ -1008,6 +1168,406 @@ private struct DraggablePlant: View {
         if health > 65 { return Theme.moss }
         if health > 35 { return Theme.sunflower }
         return Color(red: 0.75, green: 0.30, blue: 0.25)
+    }
+}
+
+// MARK: - Community buildings
+
+private extension VolunteerCategory {
+    /// Where along the street each place stands, as a fraction of the yard's width.
+    var lotX: CGFloat {
+        switch self {
+        case .animals: return 0.12
+        case .library: return 0.31
+        case .nature: return 0.50
+        case .food: return 0.69
+        case .homes: return 0.88
+        }
+    }
+}
+
+/// One place on the community street. Its level comes from volunteer hours in its category
+/// and it goes quiet if nobody has volunteered for it in two weeks — like a plant wilting.
+private struct BuildingLot: View {
+    @EnvironmentObject var appState: AppState
+    let category: VolunteerCategory
+    let canvasSize: CGSize
+    let phase: DayPhase
+    let zoom: CGFloat
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    private var hours: Double { appState.volunteerHours(in: category) }
+    private var level: Int { VolunteerCategory.level(forHours: hours) }
+    private var lively: Bool { appState.isLively(category) }
+
+    private var width: CGFloat { min(canvasSize.width * 0.2, 210) }
+    private var height: CGFloat { width * BuildingSprite.designSize.height / BuildingSprite.designSize.width }
+    private var groundInset: CGFloat { BuildingSprite.groundInset * width / BuildingSprite.designSize.width }
+    /// The spot on the sidewalk the building stands on.
+    private var base: CGPoint {
+        CGPoint(x: canvasSize.width * category.lotX, y: canvasSize.height * YardGround.horizon + YardGround.lotLine)
+    }
+
+    // Same lighting as the plants, but not as dark at night so lit windows still glow.
+    private var tint: Color {
+        phase == .night ? phase.spriteTint.mix(with: .white, by: 0.35) : phase.spriteTint
+    }
+
+    var body: some View {
+        BuildingSprite(category: category, level: level, lively: lively, isNight: phase == .night, size: width)
+            .colorMultiply(tint)
+            .allowsHitTesting(false)
+            .overlay(alignment: .bottom) {
+                Color.clear
+                    .frame(width: width * 0.85, height: height * 0.8)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onSelect)
+                    .accessibilityElement()
+                    .accessibilityLabel(accessibilityDescription)
+                    .accessibilityHint("Shows how to build it up")
+                    .accessibilityAddTraits(.isButton)
+            }
+            .overlay(alignment: .bottom) {
+                if isSelected {
+                    // Counter-scaled so the card stays the same size on screen at any zoom level.
+                    callout
+                        .fixedSize()
+                        .scaleEffect(1 / zoom, anchor: .bottom)
+                        .offset(y: -(height * 0.82))
+                        .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+                }
+            }
+            .position(x: base.x, y: base.y - height / 2 + groundInset)
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+
+    private var daysSinceVolunteering: Int? {
+        guard let last = appState.lastVolunteered(in: category) else { return nil }
+        return max(0, Int(appState.now.timeIntervalSince(last) / 86_400))
+    }
+
+    private var status: (text: String, icon: String, color: Color) {
+        if level == 0 {
+            return ("Volunteer 1 hour to break ground", "hammer.fill", Theme.stone)
+        }
+        if lively {
+            let when: String
+            switch daysSinceVolunteering ?? 0 {
+            case 0: when = "volunteered today"
+            case 1: when = "volunteered yesterday"
+            case let days: when = "volunteered \(days) days ago"
+            }
+            return ("Lively — \(when)", "sun.max.fill", Theme.moss)
+        }
+        return ("Quiet — no volunteering in 2 weeks", "moon.zzz.fill", Theme.ember)
+    }
+
+    private var progressText: String {
+        guard let remaining = VolunteerCategory.hoursToNextLevel(from: hours) else {
+            return "Fully built — keep it lively"
+        }
+        return "\(formatHours(remaining)) more hrs to \(VolunteerCategory.stageNames[level + 1])"
+    }
+
+    private var accessibilityDescription: String {
+        var parts = [category.buildingName, "level \(level + 1) of 4", VolunteerCategory.stageNames[level]]
+        if level > 0 { parts.append(lively ? "lively" : "quiet") }
+        return parts.joined(separator: ", ")
+    }
+
+    private var callout: some View {
+        VStack(spacing: 6) {
+            VStack(spacing: 1) {
+                Text(category.buildingName)
+                    .font(Theme.display(13, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+                Text("Level \(level + 1) of 4 · \(VolunteerCategory.stageNames[level])")
+                    .font(Theme.caption(11))
+                    .foregroundColor(Theme.stone)
+            }
+            Label(status.text, systemImage: status.icon)
+                .font(Theme.caption(11))
+                .foregroundColor(status.color)
+            Text(progressText)
+                .font(Theme.body(10.5))
+                .foregroundColor(Theme.stone)
+            Button {
+                appState.volunteerFocus = category
+                appState.doGoodSegment = .volunteer
+                appState.selectedTab = .doGood
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "hand.raised.fill")
+                    Text("Find ways to help")
+                }
+                .font(Theme.caption())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Theme.moss))
+                .foregroundColor(.white)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .fill(.white.opacity(0.95))
+        )
+        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+    }
+}
+
+// MARK: - New-item highlight
+
+/// A gold ring that keeps rippling outward from the base of something new.
+private struct PulseRing: View {
+    let width: CGFloat
+    @State private var expanding = false
+
+    var body: some View {
+        ZStack {
+            Ellipse()
+                .fill(Theme.sunflower.opacity(0.28))
+            Ellipse()
+                .stroke(Theme.sunflower, lineWidth: 3)
+                .scaleEffect(expanding ? 1.45 : 0.9)
+                .opacity(expanding ? 0 : 0.95)
+        }
+        .frame(width: width, height: width * 0.32)
+        .allowsHitTesting(false)
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.3).repeatForever(autoreverses: false)) { expanding = true }
+        }
+    }
+}
+
+private struct NewTag: View {
+    @State private var bob = false
+
+    var body: some View {
+        Text("NEW")
+            .font(Theme.caption(10))
+            .fontWeight(.heavy)
+            .foregroundColor(Theme.bark)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Theme.sunflower))
+            .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
+            .offset(y: bob ? -3 : 0)
+            .allowsHitTesting(false)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { bob = true }
+            }
+    }
+}
+
+// MARK: - Street upgrades and decorations
+
+private extension EcoTaskKind {
+    /// Where along the street each habit's fixture stands (in the gaps between buildings).
+    var streetSlot: CGFloat {
+        switch self {
+        case .reusable: return 0.035
+        case .travel: return 0.215
+        case .recycle: return 0.405
+        case .compost: return 0.595
+        case .water: return 0.785
+        case .donate: return 0.965
+        }
+    }
+}
+
+/// One habit's fixture on the sidewalk, e.g. a bike rack. Tap for what it is and what's next.
+private struct StreetFixture: View {
+    @EnvironmentObject var appState: AppState
+    let kind: EcoTaskKind
+    let tier: Int
+    let canvasSize: CGSize
+    let phase: DayPhase
+    let zoom: CGFloat
+    let isSelected: Bool
+    let isNew: Bool
+    let onSelect: () -> Void
+
+    private let width: CGFloat = 54
+    private var groundInset: CGFloat { UpgradeSprite.groundInset * width / UpgradeSprite.designSize.width }
+    private var base: CGPoint {
+        CGPoint(x: canvasSize.width * kind.streetSlot, y: canvasSize.height * YardGround.horizon + YardGround.lotLine + 8)
+    }
+    private var count: Int { appState.lifetimeCompletions[kind.rawValue] ?? 0 }
+
+    var body: some View {
+        UpgradeSprite(kind: kind, tier: tier, size: width)
+            .colorMultiply(phase.spriteTint)
+            .allowsHitTesting(false)
+            .background(alignment: .bottom) {
+                if isNew {
+                    PulseRing(width: width * 1.2)
+                        .offset(y: -(groundInset - width * 1.2 * 0.16))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                Color.clear
+                    .frame(width: max(44, width), height: max(44, width * 0.8))
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onSelect)
+                    .accessibilityElement()
+                    .accessibilityLabel("\(kind.upgradeNames[tier - 1]), from your eco habits")
+                    .accessibilityAddTraits(.isButton)
+            }
+            .overlay(alignment: .bottom) {
+                if isNew && !isSelected {
+                    NewTag().offset(y: -(width * 0.9))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if isSelected {
+                    callout
+                        .fixedSize()
+                        .scaleEffect(1 / zoom, anchor: .bottom)
+                        .offset(y: -(width * 0.9))
+                        .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+                }
+            }
+            .position(x: base.x, y: base.y - width / 2 + groundInset)
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+
+    private var nextText: String {
+        guard tier < EcoTaskKind.upgradeThresholds.count else { return "Fully upgraded" }
+        let needed = EcoTaskKind.upgradeThresholds[tier] - count
+        return "\(needed) more \(kind.habitPhrase) for a \(kind.upgradeNames[tier])"
+    }
+
+    private var callout: some View {
+        VStack(spacing: 6) {
+            VStack(spacing: 1) {
+                Text(kind.upgradeNames[tier - 1])
+                    .font(Theme.display(13, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+                Text("Built by your \(count) \(kind.habitPhrase)")
+                    .font(Theme.caption(11))
+                    .foregroundColor(Theme.stone)
+            }
+            Text(nextText)
+                .font(Theme.body(10.5))
+                .foregroundColor(Theme.stone)
+            Button {
+                appState.doGoodSegment = .habits
+                appState.selectedTab = .doGood
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "leaf.fill")
+                    Text("Do it again")
+                }
+                .font(Theme.caption())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Theme.moss))
+                .foregroundColor(.white)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .fill(.white.opacity(0.95))
+        )
+        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+    }
+}
+
+/// What the community level adds to the whole street: trees (level 2), streetlights (3),
+/// bunting flags (4), and festival lights with balloons (5).
+private struct StreetDecorations: View {
+    let level: Int
+    let isNight: Bool
+
+    var body: some View {
+        Canvas { ctx, size in
+            let w = size.width
+            let lotY = size.height * YardGround.horizon + YardGround.lotLine
+            let curbY = lotY + 44
+
+            if level >= 1 {
+                // street trees in the gaps between buildings, behind the sidewalk
+                for fx in [0.215, 0.405, 0.595, 0.785] as [CGFloat] {
+                    let x = w * fx
+                    ctx.fill(Path(CGRect(x: x - 2, y: lotY - 26, width: 4, height: 26)), with: .color(Theme.trunk))
+                    for (dx, dy, r, color) in [(0, -36, 13, Theme.leafDark), (-8, -29, 9, Theme.leaf), (8, -30, 9, Theme.leaf), (-2, -40, 7, Theme.leafLight)] as [(CGFloat, CGFloat, CGFloat, Color)] {
+                        ctx.fill(Path(ellipseIn: CGRect(x: x + dx - r, y: lotY + dy - r, width: r * 2, height: r * 2)), with: .color(color))
+                    }
+                }
+            }
+
+            guard level >= 2 else { return }
+            // streetlights along the curb on the garden side of the road
+            let poleXs: [CGFloat] = (0..<6).map { w * (0.07 + 0.19 * CGFloat($0)) }.filter { $0 < w }
+            let lampY = curbY - 50
+            for x in poleXs {
+                if isNight {
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - 22, y: lampY - 16, width: 44, height: 40)),
+                             with: .radialGradient(Gradient(colors: [Color(red: 1, green: 0.88, blue: 0.5).opacity(0.55), .clear]),
+                                                   center: CGPoint(x: x, y: lampY + 2), startRadius: 2, endRadius: 22))
+                }
+                ctx.fill(Path(CGRect(x: x - 1.2, y: lampY, width: 2.4, height: curbY - lampY)), with: .color(Color(white: 0.30)))
+                ctx.fill(Path(roundedRect: CGRect(x: x - 5, y: lampY - 4, width: 10, height: 5), cornerRadius: 2), with: .color(Color(white: 0.25)))
+                ctx.fill(Path(ellipseIn: CGRect(x: x - 3, y: lampY, width: 6, height: 4)),
+                         with: .color(isNight ? Color(red: 1, green: 0.92, blue: 0.6) : Color(white: 0.92)))
+            }
+
+            guard level >= 3, poleXs.count > 1 else { return }
+            // bunting strung between the lamps
+            let flagColors = [Theme.petal, Theme.sunflower, Theme.water, Theme.leafLight, Theme.lilac]
+            for i in 0..<(poleXs.count - 1) {
+                let a = CGPoint(x: poleXs[i], y: lampY - 3)
+                let b = CGPoint(x: poleXs[i + 1], y: lampY - 3)
+                let control = CGPoint(x: (a.x + b.x) / 2, y: a.y + 22)
+                var line = Path()
+                line.move(to: a)
+                line.addQuadCurve(to: b, control: control)
+                ctx.stroke(line, with: .color(Color(white: 0.35)), lineWidth: 0.8)
+
+                let flags = Int((b.x - a.x) / 10)
+                for f in 1..<max(flags, 2) {
+                    let t = CGFloat(f) / CGFloat(flags)
+                    let px = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * control.x + t * t * b.x
+                    let py = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * control.y + t * t * b.y
+                    var flag = Path()
+                    flag.move(to: CGPoint(x: px - 3, y: py))
+                    flag.addLine(to: CGPoint(x: px + 3, y: py))
+                    flag.addLine(to: CGPoint(x: px, y: py + 6))
+                    flag.closeSubpath()
+                    ctx.fill(flag, with: .color(flagColors[(i + f) % flagColors.count]))
+
+                    if level >= 4 {
+                        // festival: little lights between the flags, glowing after dark
+                        let glow = isNight ? Color(red: 1, green: 0.9, blue: 0.55) : Color(red: 1, green: 0.95, blue: 0.8)
+                        if isNight {
+                            ctx.fill(Path(ellipseIn: CGRect(x: px + 3, y: py - 2.5, width: 6, height: 6)), with: .color(glow.opacity(0.35)))
+                        }
+                        ctx.fill(Path(ellipseIn: CGRect(x: px + 4.5, y: py - 1, width: 3, height: 3)), with: .color(glow))
+                    }
+                }
+            }
+
+            guard level >= 4 else { return }
+            // balloons tied to every other lamp post
+            for (i, x) in poleXs.enumerated() where i % 2 == 0 {
+                for (j, dx) in ([-6, 0, 6] as [CGFloat]).enumerated() {
+                    let top = CGPoint(x: x + dx, y: lampY - 26 - CGFloat(j % 2) * 5)
+                    var string = Path()
+                    string.move(to: CGPoint(x: x, y: lampY - 4))
+                    string.addLine(to: CGPoint(x: top.x, y: top.y + 5))
+                    ctx.stroke(string, with: .color(Color(white: 0.4)), lineWidth: 0.6)
+                    ctx.fill(Path(ellipseIn: CGRect(x: top.x - 4, y: top.y - 5, width: 8, height: 10)),
+                             with: .color(flagColors[(i + j) % flagColors.count]))
+                }
+            }
+        }
     }
 }
 

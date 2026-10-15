@@ -16,13 +16,13 @@ heroSection
 InfoSection(
 icon: "leaf.fill",
 title: "What is EcoGarden?",
-text: "EcoGarden turns everyday sustainability habits — recycling, composting, reusing, reducing waste — into a living virtual garden. Complete real tasks, earn EcoCoins, and grow a garden that reflects the consistency of your habits."
+text: "EcoGarden turns everyday good — recycling, composting, saving water, volunteering — into a living community. Look after the planet and your garden grows. Volunteer around Baytown and the places on your street get built. Stop showing up and they go quiet."
 )
 
 InfoSection(
 icon: "checkmark.circle.fill",
 title: "How it works",
-text: "Complete tasks in the Tasks tab to earn coins — you can repeat tasks daily for a growing bonus, and attach a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt."
+text: "Complete eco tasks in the Do Good tab to earn coins — you can repeat tasks daily for a growing bonus, and attach a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt.\n\nIn Do Good → Volunteer, log hours at real Baytown organizations. Each kind of volunteering builds a place on the street behind your yard — an animal shelter, library, nature center, food bank and neighborhood — from an empty lot up to a thriving building. A place stays lively for two weeks after you last volunteered for it.\n\nThe two halves work together: your eco habits add green upgrades to the same street — bike racks, recycling bins, a community garden — and every eco task and volunteer hour fills one Community Level that adds trees, streetlights, flags and a festival. Each week there's a challenge that needs both."
 )
 
 InfoSection(
@@ -73,7 +73,7 @@ Image(systemName: "leaf.fill")
 Text("EcoGarden")
 .font(Theme.display(26))
 .foregroundColor(Theme.bark)
-Text("Small habits. A garden that grows with you.")
+Text("Small acts. A community that grows with you.")
 .font(Theme.body(13))
 .foregroundColor(Theme.stone)
 }
@@ -90,7 +90,7 @@ Text("Local Impact")
 .font(Theme.display(16, weight: .semibold))
 .foregroundColor(Theme.bark)
 }
-Text("EcoGarden is built for Baytown, Texas. Every task points to a real local resource — the city's Green Center, curbside recycling, the Goose Creek Trail, Harris County Transit. Tap a task in the Tasks tab to see its tip and open the official page.")
+Text("EcoGarden is built for Baytown, Texas. Every task points to a real local resource — the city's Green Center, curbside recycling, the Goose Creek Trail, Harris County Transit — and Do Good → Volunteer lists real Baytown programs like the animal shelter, the library's teen volunteers and the wetlands center. Tap a task in Do Good to see its tip and open the official page.")
 .font(Theme.body(13))
 .foregroundColor(Theme.stone)
 .fixedSize(horizontal: false, vertical: true)
@@ -195,15 +195,20 @@ StatTile(label: "EcoCoins", value: "\(appState.coins)", icon: "circle.fill", col
 }
 }
 
-/// The three headline impact numbers, shown on the Tasks tab and the About page.
+/// The four headline impact numbers, shown on the Do Good tab and the About page.
 struct ImpactTiles: View {
 let impact: ImpactSummary
 
 var body: some View {
+VStack(spacing: 10) {
 HStack(spacing: 10) {
 StatTile(label: "CO₂ avoided", value: "\(Self.format(impact.co2Pounds)) lb", icon: "bicycle", color: Theme.moss)
 StatTile(label: "Water saved", value: "\(Self.format(impact.gallons)) gal", icon: "drop.fill", color: Theme.water)
+}
+HStack(spacing: 10) {
 StatTile(label: "Kept from landfill", value: "\(impact.itemsDiverted)", icon: "arrow.3.trianglepath", color: Theme.soil)
+StatTile(label: "Volunteer hours", value: formatHours(impact.volunteerHours), icon: "hand.raised.fill", color: Theme.petal)
+}
 }
 }
 

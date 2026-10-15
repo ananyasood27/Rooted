@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Sustainability Task
 
 /// Which habit a task is — stable across launches, so impact can be tallied per habit.
-enum EcoTaskKind: String, Codable {
+enum EcoTaskKind: String, Codable, CaseIterable {
     case recycle, compost, reusable, donate, water, travel
 }
 
@@ -107,6 +107,7 @@ struct ImpactSummary {
     var co2Pounds: Double = 0
     var gallons: Double = 0
     var itemsDiverted: Int = 0
+    var volunteerHours: Double = 0
 }
 
 // MARK: - Garden Item (shop item the user can buy & place)
@@ -246,5 +247,315 @@ extension PlacedItem {
         case 3...5: return 6 - careCount
         default: return nil
         }
+    }
+}
+
+// MARK: - Volunteering
+
+/// The five kinds of volunteering the app tracks. Each one builds a different place on
+/// the street behind your garden.
+enum VolunteerCategory: String, Codable, CaseIterable, Identifiable {
+    case animals, library, nature, food, homes
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .animals: return "Animals"
+        case .library: return "Library"
+        case .nature: return "Nature"
+        case .food: return "Food"
+        case .homes: return "Homes"
+        }
+    }
+
+    /// The place this kind of volunteering builds.
+    var buildingName: String {
+        switch self {
+        case .animals: return "Animal Shelter"
+        case .library: return "Library"
+        case .nature: return "Nature Center"
+        case .food: return "Food Bank"
+        case .homes: return "Neighborhood"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .animals: return "pawprint.fill"
+        case .library: return "books.vertical.fill"
+        case .nature: return "bird.fill"
+        case .food: return "basket.fill"
+        case .homes: return "house.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .animals: return Color(red: 0.72, green: 0.30, blue: 0.25)
+        case .library: return Color(red: 0.62, green: 0.40, blue: 0.32)
+        case .nature: return Theme.leaf
+        case .food: return Color(red: 0.40, green: 0.52, blue: 0.66)
+        case .homes: return Color(red: 0.85, green: 0.62, blue: 0.28)
+        }
+    }
+
+    /// Every place goes through the same four steps.
+    static let stageNames = ["Empty Lot", "Under Construction", "Open", "Thriving"]
+    /// Total volunteer hours needed to reach each level.
+    static let hourThresholds: [Double] = [0, 1, 4, 10]
+    /// A place stays lively for this many days after you last volunteered for it.
+    static let livelyDays: Double = 14
+
+    static func level(forHours hours: Double) -> Int {
+        hourThresholds.lastIndex(where: { hours >= $0 }) ?? 0
+    }
+
+    /// Hours still needed to reach the next level, or nil once it's fully built.
+    static func hoursToNextLevel(from hours: Double) -> Double? {
+        let next = level(forHours: hours) + 1
+        guard next < hourThresholds.count else { return nil }
+        return hourThresholds[next] - hours
+    }
+}
+
+/// A real place to volunteer.
+struct Opportunity: Identifiable {
+    let id: String
+    let category: VolunteerCategory
+    let organization: String
+    let title: String
+    let details: String
+    let location: String
+    let ageNote: String
+    let url: String
+}
+
+// Taken from the City of Baytown volunteer pages, Houston Food Bank and Baytown Habitat for
+// Humanity (checked October 2026). Programs open, close and change their rules — re-check
+// every link before submitting.
+extension Opportunity {
+    private static let parksPage = "https://baytown.org/1409/Wetlands-Nature-Center-and-Park-Voluntee"
+
+    static let baytown: [Opportunity] = [
+        Opportunity(
+            id: "shelter", category: .animals, organization: "Baytown Animal Shelter", title: "Shelter volunteer",
+            details: "Scheduled shifts at the shelter, adoption events, and group \"shelter takeovers.\"",
+            location: "705 N Robert C. Lanier Dr, Baytown", ageNote: "Age rules are on the sign-up form",
+            url: "https://baytown.org/1376/Volunteer-Opportunities"),
+        Opportunity(
+            id: "doggie-dates", category: .animals, organization: "Baytown Animal Services", title: "Doggie Dates",
+            details: "Take a shelter dog out for the day on a Tuesday, Thursday or Saturday, then send the shelter a report card and photos.",
+            location: "705 N Robert C. Lanier Dr, Baytown", ageNote: "The person signing up must be 18+; teens can come along",
+            url: "https://baytown.org/1425/Doggie-Dates"),
+        Opportunity(
+            id: "library-teens", category: .library, organization: "Sterling Municipal Library", title: "Teen volunteer",
+            details: "Create displays, prepare take-home and program crafts, and help set up for library events.",
+            location: "1 Mary Elizabeth Wilbanks Ave, Baytown", ageNote: "For teens",
+            url: "https://www.baytown.org/305/Teen-Volunteering"),
+        Opportunity(
+            id: "epic-teens", category: .nature, organization: "Eddie V. Gray Wetlands Center", title: "E.P.I.C. Teen Volunteers",
+            details: "A free service-learning club that tackles coastal environmental problems with hands-on projects. Meets Wednesdays 4–5 PM — no registration needed.",
+            location: "1724 Market St, Baytown", ageNote: "High school students",
+            url: parksPage),
+        Opportunity(
+            id: "bird-buddies", category: .nature, organization: "Baytown Nature Center", title: "Bird Buddies",
+            details: "Keep the bird feeders in the Baytown Nature Center filled.",
+            location: "6213 Bayway Dr, Baytown", ageNote: "Check the sign-up page",
+            url: parksPage),
+        Opportunity(
+            id: "park-projects", category: .nature, organization: "Baytown Parks & Recreation", title: "Park projects for groups",
+            details: "Coastline cleanups, painting and building projects, bird blinds, garden beds and litter pickups — good for a club or class.",
+            location: "Baytown Nature Center and city parks", ageNote: "Groups — contact the Parks team through the page",
+            url: parksPage),
+        Opportunity(
+            id: "food-bank", category: .food, organization: "Houston Food Bank", title: "Warehouse shift",
+            details: "Sort and pack food at the Houston Food Bank's warehouse. Sign up for a shift online.",
+            location: "535 Portwall St, Houston", ageNote: "Kids 6+ can help with an adult; check the current age rules",
+            url: "https://www.houstonfoodbank.org/volunteer/"),
+        Opportunity(
+            id: "habitat", category: .homes, organization: "Baytown Habitat for Humanity", title: "Build volunteer",
+            details: "Help at Habitat construction sites or with office projects.",
+            location: "3900 N Main St, Baytown", ageNote: "Check age rules on the sign-up page",
+            url: "https://baytownhabitat.org/volunteer/")
+    ]
+}
+
+/// One logged stretch of volunteering.
+struct VolunteerEntry: Identifiable, Codable {
+    var id: UUID = UUID()
+    var category: VolunteerCategory
+    var organization: String
+    var opportunityID: String? = nil
+    var hours: Double
+    var date: Date
+    var proofFileName: String? = nil
+}
+
+/// "3" for whole hours, "2.5" otherwise.
+func formatHours(_ hours: Double) -> String {
+    hours == hours.rounded() ? String(format: "%.0f", hours) : String(format: "%.1f", hours)
+}
+
+// MARK: - Map places
+
+/// A real spot on the community map: somewhere to volunteer, or one of the drop-off
+/// sites from the task tips.
+struct CommunityPlace: Identifiable {
+    enum Kind: Equatable {
+        case volunteer(VolunteerCategory)
+        case dropOff
+    }
+
+    let id: String
+    let name: String
+    let address: String
+    let latitude: Double
+    let longitude: Double
+    let kind: Kind
+    /// One line on what you can do there.
+    let whatsHere: String
+    /// Opportunities (from Opportunity.baytown) you can log hours for at this place.
+    var opportunityIDs: [String] = []
+    let url: String
+}
+
+// Addresses from the City of Baytown, Goodwill Houston, Houston Food Bank and Baytown
+// Habitat websites. Coordinates were looked up from those addresses with Apple Maps and
+// OpenStreetMap (October 2026) and saved here, so the map works without a connection.
+extension CommunityPlace {
+    static let baytown: [CommunityPlace] = [
+        CommunityPlace(
+            id: "animal-shelter", name: "Baytown Animal Shelter", address: "705 N Robert C. Lanier Dr, Baytown",
+            latitude: 29.75051, longitude: -94.98262, kind: .volunteer(.animals),
+            whatsHere: "Shelter shifts, adoption events, and Doggie Dates",
+            opportunityIDs: ["shelter", "doggie-dates"], url: "https://baytown.org/1209/Animal-Services"),
+        CommunityPlace(
+            id: "library", name: "Sterling Municipal Library", address: "1 Mary Elizabeth Wilbanks Ave, Baytown",
+            latitude: 29.73670, longitude: -94.97985, kind: .volunteer(.library),
+            whatsHere: "Teen volunteers make displays and crafts and help set up events",
+            opportunityIDs: ["library-teens"], url: "https://www.baytown.org/305/Teen-Volunteering"),
+        CommunityPlace(
+            id: "wetlands-center", name: "Eddie V. Gray Wetlands Center", address: "1724 Market St, Baytown",
+            latitude: 29.73197, longitude: -94.98523, kind: .volunteer(.nature),
+            whatsHere: "E.P.I.C. Teen Volunteers meet here Wednesdays 4–5 PM",
+            opportunityIDs: ["epic-teens"], url: "https://baytown.org/1409/Wetlands-Nature-Center-and-Park-Voluntee"),
+        CommunityPlace(
+            id: "nature-center", name: "Baytown Nature Center", address: "6213 Bayway Dr, Baytown",
+            latitude: 29.75510, longitude: -95.03679, kind: .volunteer(.nature),
+            whatsHere: "Bird Buddies and group park projects",
+            opportunityIDs: ["bird-buddies", "park-projects"], url: "https://baytown.org/1409/Wetlands-Nature-Center-and-Park-Voluntee"),
+        CommunityPlace(
+            id: "food-bank", name: "Houston Food Bank", address: "535 Portwall St, Houston",
+            latitude: 29.78097, longitude: -95.27474, kind: .volunteer(.food),
+            whatsHere: "Warehouse shifts sorting and packing food",
+            opportunityIDs: ["food-bank"], url: "https://www.houstonfoodbank.org/volunteer/"),
+        CommunityPlace(
+            id: "habitat", name: "Baytown Habitat for Humanity", address: "3900 N Main St, Baytown",
+            latitude: 29.76338, longitude: -94.96390, kind: .volunteer(.homes),
+            whatsHere: "Build days and office projects",
+            opportunityIDs: ["habitat"], url: "https://baytownhabitat.org/volunteer/"),
+        CommunityPlace(
+            id: "green-center", name: "Baytown Green Center", address: "1601 W Main St, Baytown",
+            latitude: 29.72158, longitude: -94.98676, kind: .dropOff,
+            whatsHere: "Recycling, electronics, textiles and yard waste (Baytown residents)",
+            url: "https://baytown.org/1227"),
+        CommunityPlace(
+            id: "goodwill", name: "Goodwill Donation Center", address: "3501 Garth Rd Suite 100, Baytown",
+            latitude: 29.76066, longitude: -94.97744, kind: .dropOff,
+            whatsHere: "Donate clothes, books and household items",
+            url: "https://www.goodwillhouston.org/locations/baytown")
+    ]
+}
+
+// MARK: - Green upgrades (eco habits change the street)
+
+/// Volunteering builds the places on the street; eco habits make the street around them
+/// greener. Each habit adds a fixture after 3 completions and upgrades it after 10.
+extension EcoTaskKind {
+    static let upgradeThresholds = [3, 10]
+
+    /// What the habit adds to the street at tier 1 and tier 2.
+    var upgradeNames: [String] {
+        switch self {
+        case .travel: return ["Bike Rack", "Bike Lane"]
+        case .recycle: return ["Recycling Bins", "Recycling Station"]
+        case .compost: return ["Garden Bed", "Community Garden"]
+        case .water: return ["Rain Barrel", "Rain Garden"]
+        case .reusable: return ["Water Refill Station", "Reusable Market"]
+        case .donate: return ["Donation Box", "Little Free Library"]
+        }
+    }
+
+    /// How the habit is counted, for "3 walk or bike trips".
+    var habitPhrase: String {
+        switch self {
+        case .travel: return "walk or bike trips"
+        case .recycle: return "times recycling"
+        case .compost: return "times composting"
+        case .water: return "water-saving days"
+        case .reusable: return "reusable bag or bottle days"
+        case .donate: return "donations"
+        }
+    }
+
+    /// 0 = nothing yet, 1 = first fixture, 2 = upgraded.
+    func upgradeTier(forCount count: Int) -> Int {
+        Self.upgradeThresholds.filter { count >= $0 }.count
+    }
+}
+
+// MARK: - Community level
+
+/// One level for the whole community, filled by eco tasks and volunteering together.
+enum CommunityLevel {
+    static let pointsPerTask = 1
+    static let pointsPerVolunteerHour = 3
+
+    static let names = ["Quiet Street", "Growing Block", "Green Neighborhood", "Thriving Community", "Model Community"]
+    static let thresholds = [0, 10, 30, 60, 100]
+    /// What reaching each level adds to the street (nothing for the first).
+    static let unlocks = ["", "Street trees", "Streetlights", "Bunting flags", "Festival lights and balloons"]
+
+    /// 0-based level for a points total.
+    static func level(forPoints points: Int) -> Int {
+        thresholds.lastIndex(where: { points >= $0 }) ?? 0
+    }
+
+    /// How far through the current level, 0...1 (1 at the top level).
+    static func progress(forPoints points: Int) -> Double {
+        let level = level(forPoints: points)
+        guard level + 1 < thresholds.count else { return 1 }
+        return Double(points - thresholds[level]) / Double(thresholds[level + 1] - thresholds[level])
+    }
+
+    static func pointsToNextLevel(from points: Int) -> Int? {
+        let next = level(forPoints: points) + 1
+        guard next < thresholds.count else { return nil }
+        return thresholds[next] - points
+    }
+}
+
+// MARK: - Weekly challenge
+
+/// A goal each week that needs both kinds of doing good. Rotates so it isn't the same every week.
+struct WeeklyChallenge {
+    let ecoGoal: Int
+    let hoursGoal: Double
+
+    static let rewardCoins = 50
+    static let rewardPoints = 10
+    private static let rotation: [(Int, Double)] = [(3, 1), (5, 1), (4, 2)]
+
+    static func forWeek(of date: Date) -> WeeklyChallenge {
+        let week = Calendar.current.component(.weekOfYear, from: date)
+        let goal = rotation[week % rotation.count]
+        return WeeklyChallenge(ecoGoal: goal.0, hoursGoal: goal.1)
+    }
+
+    /// Identifies a week, e.g. "2026-42", so the reward is only paid once.
+    static func weekKey(for date: Date) -> String {
+        let cal = Calendar.current
+        return "\(cal.component(.yearForWeekOfYear, from: date))-\(cal.component(.weekOfYear, from: date))"
     }
 }

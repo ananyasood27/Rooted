@@ -81,7 +81,8 @@ struct PlantSprite: View {
 
 // MARK: - Painter
 
-private struct PlantPainter {
+/// Draws in design units onto a Canvas. Also used for the community buildings in TownArt.swift.
+struct PlantPainter {
     let ctx: GraphicsContext
     /// Points per design unit.
     let u: CGFloat

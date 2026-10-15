@@ -1,7 +1,8 @@
 import SwiftUI
 import PhotosUI
 
-struct TaskListView: View {
+/// The eco habits half of the Do Good tab: today's tasks, proof photos and tips.
+struct HabitsSection: View {
     @EnvironmentObject var appState: AppState
 
     @State private var taskPendingPhoto: EcoTask? = nil
@@ -10,140 +11,112 @@ struct TaskListView: View {
     @State private var showPhotoPicker = false
     @State private var photoFailed = false
     @State private var proofOnDisplay: ProofPhoto? = nil
-    @State private var showInfo = false
     @State private var expandedTaskID: UUID? = nil
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
+        VStack(alignment: .leading, spacing: 20) {
+            header
 
-                    if appState.justEarnedFullClearBonus {
-                        celebrationBanner
-                    }
+            if appState.justEarnedFullClearBonus {
+                celebrationBanner
+            }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionLabel(text: "Your impact so far")
-                        ImpactTiles(impact: appState.impact)
-                    }
+            VStack(alignment: .leading, spacing: 12) {
+                SectionLabel(text: "Today")
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionLabel(text: "Today")
-
-                        VStack(spacing: 10) {
-                            ForEach(appState.tasks) { task in
-                                TaskRow(
-                                    task: task,
-                                    nextReward: appState.nextReward(for: task),
-                                    isExpanded: expandedTaskID == task.id,
-                                    onComplete: { showProofChoice = task },
-                                    onShowProof: {
-                                        if let fileName = task.proofFileName {
-                                            proofOnDisplay = ProofPhoto(fileName: fileName, title: task.title)
-                                        }
-                                    },
-                                    onToggleExpand: {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            expandedTaskID = (expandedTaskID == task.id) ? nil : task.id
-                                        }
-                                    }
-                                )
+                VStack(spacing: 10) {
+                    ForEach(appState.tasks) { task in
+                        TaskRow(
+                            task: task,
+                            nextReward: appState.nextReward(for: task),
+                            streetText: streetText(for: task),
+                            isExpanded: expandedTaskID == task.id,
+                            onComplete: { showProofChoice = task },
+                            onShowProof: {
+                                if let fileName = task.proofFileName {
+                                    proofOnDisplay = ProofPhoto(fileName: fileName, title: task.title)
+                                }
+                            },
+                            onToggleExpand: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    expandedTaskID = (expandedTaskID == task.id) ? nil : task.id
+                                }
                             }
-                        }
+                        )
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 8)
-                .padding(.bottom, 28)
-            }
-            .background(
-                LinearGradient(
-                    colors: [Theme.skyWash, Theme.sage.opacity(0.12)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
-            )
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showInfo = true }) {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(Theme.moss)
-                    }
-                    .accessibilityLabel("About EcoGarden")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    CoinBadge(amount: appState.coins)
-                }
-            }
-            .sheet(isPresented: $showInfo) {
-                InfoView().environmentObject(appState)
-            }
-            .confirmationDialog(
-                "Add a photo as proof?",
-                isPresented: Binding(
-                    get: { showProofChoice != nil },
-                    set: { if !$0 { showProofChoice = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Attach Photo") {
-                    taskPendingPhoto = showProofChoice
-                    showProofChoice = nil
-                    // Give the dialog a moment to finish closing — opening the picker
-                    // while it is still on screen can fail silently.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showPhotoPicker = true }
-                }
-                Button("Mark Complete (No Photo)") {
-                    if let task = showProofChoice {
-                        appState.completeTask(task, proofFile: nil)
-                    }
-                    showProofChoice = nil
-                }
-                Button("Cancel", role: .cancel) {
-                    showProofChoice = nil
-                }
-            }
-            // The picker's open/closed state is kept separate from `taskPendingPhoto`:
-            // the picker closes itself the moment a photo is chosen, and the task must
-            // still be remembered when the choice arrives just after.
-            .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                guard let newItem, let task = taskPendingPhoto else { return }
-                selectedPhotoItem = nil
-                taskPendingPhoto = nil
-                Task {
-                    let data = try? await newItem.loadTransferable(type: Data.self)
-                    // Shrinking and saving a full-size photo is slow — keep it off the main thread.
-                    let fileName = await Task.detached { data.flatMap(ProofStore.save) }.value
-                    if let fileName {
-                        appState.completeTask(task, proofFile: fileName)
-                    } else {
-                        photoFailed = true
-                    }
-                }
-            }
-            .alert("Couldn't use that photo", isPresented: $photoFailed) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("The task wasn't marked complete. Try another photo, or complete it without one.")
-            }
-            .sheet(item: $proofOnDisplay) { proof in
-                ProofViewer(proof: proof)
             }
         }
+        .confirmationDialog(
+            "Add a photo as proof?",
+            isPresented: Binding(
+                get: { showProofChoice != nil },
+                set: { if !$0 { showProofChoice = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Attach Photo") {
+                taskPendingPhoto = showProofChoice
+                showProofChoice = nil
+                // Give the dialog a moment to finish closing — opening the picker
+                // while it is still on screen can fail silently.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showPhotoPicker = true }
+            }
+            Button("Mark Complete (No Photo)") {
+                if let task = showProofChoice {
+                    appState.completeTask(task, proofFile: nil)
+                }
+                showProofChoice = nil
+            }
+            Button("Cancel", role: .cancel) {
+                showProofChoice = nil
+            }
+        }
+        // The picker's open/closed state is kept separate from `taskPendingPhoto`:
+        // the picker closes itself the moment a photo is chosen, and the task must
+        // still be remembered when the choice arrives just after.
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            guard let newItem, let task = taskPendingPhoto else { return }
+            selectedPhotoItem = nil
+            taskPendingPhoto = nil
+            Task {
+                let data = try? await newItem.loadTransferable(type: Data.self)
+                // Shrinking and saving a full-size photo is slow — keep it off the main thread.
+                let fileName = await Task.detached { data.flatMap(ProofStore.save) }.value
+                if let fileName {
+                    appState.completeTask(task, proofFile: fileName)
+                } else {
+                    photoFailed = true
+                }
+            }
+        }
+        .alert("Couldn't use that photo", isPresented: $photoFailed) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("The task wasn't marked complete. Try another photo, or complete it without one.")
+        }
+        .sheet(item: $proofOnDisplay) { proof in
+            ProofViewer(proof: proof)
+        }
+    }
+
+    /// The street upgrade this task works toward, e.g. "Street: Bike Rack · 2/3".
+    private func streetText(for task: EcoTask) -> String? {
+        guard let kind = task.kind else { return nil }
+        let count = appState.lifetimeCompletions[kind.rawValue] ?? 0
+        let tier = kind.upgradeTier(forCount: count)
+        guard tier < EcoTaskKind.upgradeThresholds.count else {
+            return "Street: \(kind.upgradeNames[tier - 1]) built"
+        }
+        return "Street: \(kind.upgradeNames[tier]) · \(count)/\(EcoTaskKind.upgradeThresholds[tier])"
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(greeting)
-                .font(Theme.body(14))
-                .foregroundColor(Theme.stone)
-
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(appState.allTasksCompletedToday ? "All tasks done today" : "\(completedCount) of \(appState.tasks.count) done")
-                    .font(Theme.display(26))
+                Text(appState.allTasksCompletedToday ? "All tasks done today" : "\(completedCount) of \(appState.tasks.count) done today")
+                    .font(Theme.display(22))
                     .foregroundColor(Theme.bark)
 
                 if appState.streak > 0 {
@@ -204,13 +177,6 @@ struct TaskListView: View {
     private var completedCount: Int {
         appState.tasks.filter { $0.completionsToday >= 1 }.count
     }
-
-    private var greeting: String {
-        let name = appState.userName.isEmpty ? "there" : appState.userName
-        let hour = Calendar.current.component(.hour, from: Date())
-        let time = hour < 12 ? "Morning" : (hour < 18 ? "Afternoon" : "Evening")
-        return "Good \(time), \(name)"
-    }
 }
 
 private struct ProgressBar: View {
@@ -232,6 +198,7 @@ private struct ProgressBar: View {
 private struct TaskRow: View {
     let task: EcoTask
     let nextReward: Int
+    let streetText: String?
     let isExpanded: Bool
     let onComplete: () -> Void
     let onShowProof: () -> Void
@@ -271,6 +238,13 @@ private struct TaskRow: View {
                         Text("Done \(task.completionsToday)× today")
                             .font(Theme.caption(11))
                             .foregroundColor(Theme.moss)
+                    }
+
+                    if let streetText {
+                        Label(streetText, systemImage: "signpost.right.fill")
+                            .font(Theme.caption(11))
+                            .foregroundColor(Theme.soil)
+                            .padding(.top, 1)
                     }
                 }
 
@@ -404,5 +378,5 @@ private struct ProofViewer: View {
 }
 
 #Preview {
-    TaskListView().environmentObject(AppState())
+    ScrollView { HabitsSection().padding() }.environmentObject(AppState())
 }

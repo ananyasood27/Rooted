@@ -81,7 +81,7 @@ struct WelcomeView: View {
                 .font(Theme.display(32))
                 .foregroundColor(Theme.bark)
 
-            Text("Small habits. A garden that grows with you.")
+            Text("Small acts. A community that grows with you.")
                 .font(Theme.body(14))
                 .foregroundColor(Theme.stone)
                 .multilineTextAlignment(.center)
