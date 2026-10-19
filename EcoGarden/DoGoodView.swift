@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// The main tab: everything you do for real — eco habits and volunteering — in one place,
-/// with the community level and weekly challenge that both of them feed.
 struct DoGoodView: View {
     @EnvironmentObject var appState: AppState
     @State private var showInfo = false
@@ -47,7 +45,7 @@ struct DoGoodView: View {
                         Image(systemName: "info.circle")
                             .foregroundColor(Theme.moss)
                     }
-                    .accessibilityLabel("About EcoGarden")
+                    .accessibilityLabel("About Rooted")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     CoinBadge(amount: appState.coins)
@@ -69,7 +67,6 @@ struct DoGoodView: View {
         return "Good \(time), \(name)"
     }
 
-    /// Habits | Volunteer — two halves of the same thing, so they share one screen.
     private var segmentSwitch: some View {
         HStack(spacing: 0) {
             segmentButton("Eco Habits", icon: "leaf.fill", value: .habits)
@@ -98,7 +95,6 @@ struct DoGoodView: View {
 
 // MARK: - Community level card
 
-/// The one number for everything: eco tasks and volunteer hours both fill it.
 struct CommunityLevelCard: View {
     @EnvironmentObject var appState: AppState
     let onTap: () -> Void
@@ -121,11 +117,11 @@ struct CommunityLevelCard: View {
                     Text(CommunityLevel.names[level])
                         .font(Theme.display(18, weight: .semibold))
                         .foregroundColor(Theme.bark)
-                    Text("\(tasksDone) eco tasks + \(formatHours(hours)) volunteer hrs · \(points) pts")
+                    Text("\(tasksDone) eco tasks and \(formatHours(hours)) volunteer hours, \(points) points total")
                         .font(Theme.body(12))
                         .foregroundColor(Theme.stone)
                     if let remaining = CommunityLevel.pointsToNextLevel(from: points) {
-                        Text("\(remaining) pts to \(CommunityLevel.names[level + 1]) — unlocks \(CommunityLevel.unlocks[level + 1].lowercased())")
+                        Text("\(remaining) more points to reach \(CommunityLevel.names[level + 1]), which adds \(CommunityLevel.unlocks[level + 1].lowercased())")
                             .font(Theme.caption(11))
                             .foregroundColor(Theme.moss)
                             .fixedSize(horizontal: false, vertical: true)
@@ -145,7 +141,6 @@ struct CommunityLevelCard: View {
     }
 }
 
-/// A ring that fills toward the next level, with the level number in the middle.
 struct LevelRing: View {
     let level: Int
     let progress: Double
@@ -265,8 +260,6 @@ struct WeeklyChallengeCard: View {
 
 // MARK: - Level sheet
 
-/// Explains how the community grows: points from both kinds of doing good, what each
-/// level adds, and which street upgrades each habit has unlocked.
 struct CommunityLevelSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss

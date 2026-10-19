@@ -15,12 +15,10 @@ struct ContentView: View {
     }
 }
 
-/// The three tabs. Kept in AppState so any screen can switch tabs.
 enum AppTab: Hashable {
     case doGood, community, shop
 }
 
-/// The two halves of the Do Good tab.
 enum DoGoodSegment: Hashable {
     case habits, volunteer
 }
@@ -43,7 +41,6 @@ private struct MainTabView: View {
                 .tag(AppTab.shop)
         }
         .tint(Theme.moss)
-        // Level-ups, weekly challenge wins and new street upgrades, from any screen.
         .overlay(alignment: .top) {
             if let message = appState.celebrations.first {
                 CelebrationBanner(text: message)
@@ -63,7 +60,6 @@ private struct MainTabView: View {
     }
 }
 
-/// A short gold banner for good news. Tap to dismiss early.
 struct CelebrationBanner: View {
     @EnvironmentObject var appState: AppState
     let text: String

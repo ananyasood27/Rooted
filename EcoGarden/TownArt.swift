@@ -1,23 +1,15 @@
 import SwiftUI
 
-// Drawn art for the five community places on the street behind the garden.
-// Each place has four levels (empty lot, under construction, open, thriving), and once
-// it's open it looks different depending on whether you've volunteered recently:
-// lively places have lit windows, people and flowers; quiet ones get a CLOSED sign and weeds.
-//
-// Uses the same painter as the plants (PlantPainter in PlantArt.swift), so the units work
-// the same way: x runs -80...80 around the middle of the lot, y runs up from the sidewalk.
+// Building art. Units: x -80...80, y up from the sidewalk.
 
 struct BuildingSprite: View {
     let category: VolunteerCategory
     let level: Int
     var lively = true
     var isNight = false
-    /// Width of the frame in points.
     var size: CGFloat = 170
 
     static let designSize = CGSize(width: 160, height: 130)
-    /// Design units between the bottom of the frame and the sidewalk.
     static let groundInset: CGFloat = 8
 
     var body: some View {
@@ -39,19 +31,17 @@ struct BuildingSprite: View {
     }
 }
 
-/// Whether a place is in use, and whether it's dark out — decides how windows look.
 private struct Look {
     let lively: Bool
     let isNight: Bool
 }
 
-/// Where a finished building's door is and where its visitors stand.
 private struct Layout {
     var doorX: CGFloat
     var doorY: CGFloat
     var peopleXs: [CGFloat]
     var planterXs: [CGFloat]
-    /// What the sign on the door says when it's quiet (nil = no sign, e.g. houses).
+    // nil = no sign (houses)
     var closedText: String? = "CLOSED"
 }
 
@@ -144,7 +134,7 @@ extension PlantPainter {
         poly([(x0, base), (x1, base), ((x0 + x1) / 2, peak)], color)
     }
 
-    // MARK: Level 1 and 2 — before it's built
+    // MARK: Level 1 and 2 (not built yet)
 
     private func emptyLot(_ category: VolunteerCategory) {
         oval(-6, 1, 50, 4.5, Theme.soil.opacity(0.45))
@@ -202,7 +192,7 @@ extension PlantPainter {
         }
     }
 
-    // MARK: Level 3 and 4 — finished places
+    // MARK: Level 3 and 4 (finished)
 
     private func shelter(big: Bool, look: Look) -> Layout {
         let red = Color(red: 0.72, green: 0.30, blue: 0.25)
@@ -400,8 +390,7 @@ extension PlantPainter {
 
 // MARK: - Street upgrades from eco habits
 
-/// The small things eco habits add to the street (bike racks, recycling bins, garden beds…).
-/// Same painter and units as the buildings, in a 60 × 60 box.
+// Same units as the buildings, 60 x 60 box.
 struct UpgradeSprite: View {
     let kind: EcoTaskKind
     let tier: Int

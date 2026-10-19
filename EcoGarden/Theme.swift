@@ -1,36 +1,26 @@
 import SwiftUI
 
-/// A deliberate, specific design language for EcoGarden.
-/// Avoid Color.green / Color.blue everywhere — those are the "default AI app" tell.
+// App colors, fonts and shared styles.
 enum Theme {
 
-    // MARK: - Palette (named + intentional, not system defaults)
+    // MARK: - Palette
 
-    /// Deep moss — primary brand color, used for headers & key actions
     static let moss = Color(red: 0.20, green: 0.34, blue: 0.24)
-    /// Soft sage — secondary green, used for cards & fills
     static let sage = Color(red: 0.60, green: 0.71, blue: 0.56)
-    /// Warm soil — brown accent for earthy elements (compost, wood, dirt)
     static let soil = Color(red: 0.42, green: 0.32, blue: 0.22)
-    /// Sunflower — the ONE bright accent, used sparingly for coins/rewards only
+    // only for coins/rewards
     static let sunflower = Color(red: 0.91, green: 0.72, blue: 0.30)
-    /// Sky wash — pale background tint, not pure white/cream
     static let skyWash = Color(red: 0.93, green: 0.96, blue: 0.92)
-    /// Bark — near-black text color, warmer than pure black
     static let bark = Color(red: 0.14, green: 0.13, blue: 0.10)
-    /// Muted stone — secondary text
     static let stone = Color(red: 0.45, green: 0.44, blue: 0.40)
-    /// Card — a warm off-white that every card, tile and text field sits on
     static let card = Color(red: 0.995, green: 0.99, blue: 0.975)
-    /// Ember — streak flames and error messages
     static let ember = Color(red: 0.85, green: 0.45, blue: 0.20)
 
-    // MARK: - Garden art tones (used by the drawn plants & scenery)
+    // MARK: - Garden art colors
 
     static let leafLight = Color(red: 0.52, green: 0.74, blue: 0.36)
     static let leaf = Color(red: 0.31, green: 0.57, blue: 0.28)
     static let leafDark = Color(red: 0.17, green: 0.40, blue: 0.22)
-    /// What foliage fades toward as a plant dries out
     static let wilt = Color(red: 0.68, green: 0.58, blue: 0.30)
     static let trunk = Color(red: 0.47, green: 0.33, blue: 0.20)
     static let trunkDark = Color(red: 0.32, green: 0.22, blue: 0.14)
@@ -45,8 +35,6 @@ enum Theme {
 
     // MARK: - Type roles
 
-    /// Headlines: rounded system font gives a friendly, crafted feel
-    /// without needing to bundle custom font files.
     static func display(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
         .system(size: size, weight: weight, design: .rounded)
     }
@@ -86,9 +74,8 @@ extension View {
     func ecoCard() -> some View { modifier(EcoCard()) }
 }
 
-// MARK: - Shared controls, so every screen's headings, fields and buttons match
+// MARK: - Shared controls
 
-/// The small all-caps heading above a group of cards.
 struct SectionLabel: View {
     let text: String
 
@@ -101,7 +88,6 @@ struct SectionLabel: View {
     }
 }
 
-/// A labelled text field. Pass `isSecure` for passwords.
 struct EcoField: View {
     let label: String
     let prompt: String
@@ -140,7 +126,6 @@ struct EcoField: View {
     }
 }
 
-/// The one big green button per screen.
 struct EcoPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -158,7 +143,7 @@ struct EcoPrimaryButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Coin badge, used consistently in nav bars instead of a plain Label
+// MARK: - Coin badge
 
 struct CoinBadge: View {
     let amount: Int

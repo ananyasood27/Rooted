@@ -2,8 +2,7 @@ import Foundation
 import SwiftUI
 import Combine
 
-//Central source of truth for the app. Injected as an EnvironmentObject.
-//Persists to UserDefaults as JSON — simple and reliable for a CAC-scale project.
+// App state, saved to UserDefaults.
 class AppState: ObservableObject {
 
     @Published var tasks: [EcoTask] {
@@ -21,7 +20,6 @@ class AppState: ObservableObject {
     @Published var hasOnboarded: Bool {
         didSet { save() }
     }
-    /// False until someone logs in; logging out sets it back. Saved, so you stay logged in.
     @Published var isLoggedIn: Bool {
         didSet { save() }
     }
@@ -31,60 +29,52 @@ class AppState: ObservableObject {
     @Published var lastFullClearDate: Date? {
         didSet { save() }
     }
-    /// Set briefly to true right after a full-clear bonus fires, so the UI can
-    /// show a one-time celebration instead of a permanent banner every visit.
+    // One-time banner after the full-clear bonus.
     @Published var justEarnedFullClearBonus: Bool = false
-    /// All-time completions per habit (keyed by EcoTaskKind raw value) — feeds the impact numbers.
+    // Keyed by EcoTaskKind raw value.
     @Published var lifetimeCompletions: [String: Int] {
         didSet { save() }
     }
-    /// Every logged stretch of volunteering — builds the places on the community street.
     @Published var volunteerLog: [VolunteerEntry] {
         didSet { save() }
     }
-    /// Which tab is showing, so other screens can send you somewhere (e.g. a building's
-    /// "Find ways to help" button opens the Volunteer tab). Not saved.
     @Published var selectedTab: AppTab = .doGood
-    /// Which half of the Do Good tab is showing. Not saved.
     @Published var doGoodSegment: DoGoodSegment = .habits
-    /// The item just bought in the Shop, so the garden can point it out. Not saved.
+    // Item just bought, so the garden can point it out.
     @Published var newlyPlacedID: UUID? = nil
-    /// Good-news messages waiting to be shown one at a time (see CelebrationBanner). Not saved.
+    // Queue for CelebrationBanner.
     @Published var celebrations: [String] = []
-    /// When each eco task was completed recently — used for the weekly challenge.
+    // Used for the weekly challenge.
     @Published var ecoCompletionDates: [Date] {
         didSet { save() }
     }
-    /// Community points from things other than tasks and hours (weekly challenge rewards).
+    // Weekly challenge bonuses.
     @Published var bonusPoints: Int {
         didSet { save() }
     }
-    /// The week ("2026-42") whose challenge reward was last paid out.
+    // e.g. "2026-42"
     @Published var lastChallengeWeek: String {
         didSet { save() }
     }
-    /// The community level the user has already been told about, so each level-up is announced once.
+    // So each level-up is only announced once.
     @Published var lastSeenCommunityLevel: Int {
         didSet { save() }
     }
-    /// Street upgrade tier the user has already seen, per habit — anything higher shows as NEW.
+    // Upgrades above this tier show as NEW.
     @Published var seenUpgradeTiers: [String: Int] {
         didSet { save() }
     }
-    /// Set to pre-filter the Volunteer tab when opening it from a building.
+    // Pre-filters the volunteer list when opened from a building.
     @Published var volunteerFocus: VolunteerCategory? = nil
-    /// Whether the user has turned on reminder notifications (see Reminders.swift).
     @Published var remindersEnabled: Bool {
         didSet {
             save()
             refreshReminders()
         }
     }
-    /// Demo mode: how far the garden's clock has been pushed ahead of the real one,
-    /// so wilting and nightfall can be shown without waiting hours. Never saved.
+    // Demo mode only, never saved.
     @Published var demoTimeOffset: TimeInterval = 0
 
-    /// The garden's idea of "now" — the real time, plus any demo fast-forward.
     var now: Date { Date().addingTimeInterval(demoTimeOffset) }
 
     let shopItems = GardenItem.shopItems
@@ -107,15 +97,13 @@ class AppState: ObservableObject {
     private let seenLevelKey = "ecogarden.lastSeenCommunityLevel"
     private let seenUpgradesKey = "ecogarden.seenUpgradeTiers"
 
-    /// Number of repeats after which the combo bonus stops growing (still completable, just flat).
+    // Combo bonus stops growing after this many repeats.
     private let comboCap = 4
-    /// Fraction of base reward added per repeat, up to the cap.
     private let comboBonusRate = 0.25
     private let fullClearBonus = 20
     let wateringCost = 5
     static let coinsPerVolunteerHour = 10
-    /// Normalized vertical band of the garden canvas that is actually ground —
-    /// above this is fence, hills and sky, where nothing can be planted.
+    // Part of the canvas that's lawn (normalized y).
     static let yardYRange: ClosedRange<Double> = 0.40...0.95
 
     init() {
@@ -124,7 +112,7 @@ class AppState: ObservableObject {
            let decoded = try? JSONDecoder().decode([EcoTask].self, from: data) {
             self.tasks = decoded.map { task in
                 var t = task
-                // Photos used to be saved inside this data; move any into files.
+                // Older versions stored photos inline; move them to files.
                 if let oldPhoto = t.proofImageData {
                     t.proofFileName = ProofStore.save(oldPhoto)
                     t.proofDate = t.lastCompletedDate
@@ -150,9 +138,7 @@ class AppState: ObservableObject {
 
         if let data = defaults.data(forKey: placedKey),
            let decoded = try? JSONDecoder().decode([PlacedItem].self, from: data) {
-            // Items saved before shop IDs were stable point at IDs that no longer exist;
-            // bring them back as seedlings rather than leaving them invisible. Also pull
-            // anything that was parked up in the sky back down onto the lawn.
+            // Fix items from before shop IDs were stable, and keep everything on the lawn.
             let knownIDs = Set(GardenItem.shopItems.map(\.id))
             let fallbackID = GardenItem.shopItems[0].id
             self.placedItems = decoded.map { item in
@@ -195,8 +181,7 @@ class AppState: ObservableObject {
             }
         }
 
-        // First launch with levels and upgrades: count what's already earned as seen,
-        // so nobody gets a pile of "level up!" messages for old progress.
+        // Don't announce progress made before levels existed.
         if defaults.object(forKey: seenLevelKey) == nil {
             lastSeenCommunityLevel = communityLevel
             seenUpgradeTiers = currentUpgradeTiers
@@ -208,8 +193,7 @@ class AppState: ObservableObject {
 
     // MARK: - Reminders
 
-    /// Turning reminders on has to go through the system permission prompt first.
-    /// `denied` is called if the user (now or earlier) said no to notifications.
+    // `denied` runs if notifications aren't allowed.
     func setReminders(_ on: Bool, denied: @escaping () -> Void = {}) {
         guard on else {
             remindersEnabled = false
@@ -221,7 +205,6 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Re-plans the notifications so the "needs care" alert always matches the garden.
     private func refreshReminders() {
         if remindersEnabled {
             Reminders.schedule(for: placedItems)
@@ -236,8 +219,7 @@ class AppState: ObservableObject {
         isLoggedIn = false
     }
 
-    /// The only way back in after a forgotten password: wipe the account and everything
-    /// saved with it, returning the app to how it was on first launch.
+    // Used by "Forgot password?": wipes everything.
     func resetEverything() {
         AccountStore.delete()
         for task in tasks {
@@ -271,16 +253,13 @@ class AppState: ObservableObject {
 
     // MARK: - Task actions
 
-    /// The reward for the *next* completion of this task today — grows with repeats, then plateaus.
+    // Reward for the next completion today (combo grows, then caps).
     func nextReward(for task: EcoTask) -> Int {
     let repeatIndex = max(0, min(task.completionsToday, comboCap)) // clamp to 0...comboCap
     let bonus = Double(task.coinReward) * comboBonusRate * Double(repeatIndex)
     return task.coinReward + Int(bonus)
     }
 
-    /// Complete a task (repeatable). Awards a growing combo bonus for same-day repeats,
-    /// then checks whether the whole list just got cleared for the first time today.
-    /// `proofFile` is the name of a photo already saved with ProofStore, if one was attached.
     func completeTask(_ task: EcoTask, proofFile: String?) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
 
@@ -299,14 +278,12 @@ class AppState: ObservableObject {
             if tierAfter > tierBefore {
                 celebrations.append("New on your street: \(kind.upgradeNames[tierAfter - 1])! Go see it in Community.")
             }
-            // The first completion each day also tends the matching garden items.
-            // Only the first, so repeating a task can't max out a garden in one sitting.
+            // Only the first completion each day, so repeats can't max out the garden.
             if tasks[index].completionsToday == 1, let itemKind = kind.tendsItem {
                 tendItems(of: itemKind)
             }
         }
         coins += reward
-        // Only the last 60 days matter for weekly challenges.
         let cutoff = Date().addingTimeInterval(-60 * 86_400)
         ecoCompletionDates = ecoCompletionDates.filter { $0 > cutoff } + [Date()]
 
@@ -314,7 +291,6 @@ class AppState: ObservableObject {
         checkProgress()
     }
 
-    /// Estimated real-world effect of everything completed so far.
     var impact: ImpactSummary {
         var total = ImpactSummary()
         for (rawKind, count) in lifetimeCompletions {
@@ -329,8 +305,7 @@ class AppState: ObservableObject {
 
     // MARK: - Volunteering
 
-    /// Saves some volunteering and pays out coins for it. Hours are kept between half an
-    /// hour and 8 hours per entry, so one entry can't build a whole place by itself.
+    // Hours are clamped to 0.5-8 per entry.
     func logVolunteering(category: VolunteerCategory, organization: String, opportunityID: String?,
                          hours: Double, date: Date, proofFile: String?) {
         let clampedHours = min(max(hours, 0.5), 8)
@@ -348,7 +323,7 @@ class AppState: ObservableObject {
 
     // MARK: - Community level, street upgrades and weekly challenge
 
-    /// Points from everything: each eco task, each volunteer hour, and challenge bonuses.
+    // 1 per task, 3 per volunteer hour, plus bonuses.
     var communityPoints: Int {
         let tasksDone = lifetimeCompletions.values.reduce(0, +)
         let hours = volunteerLog.reduce(0) { $0 + $1.hours }
@@ -367,7 +342,6 @@ class AppState: ObservableObject {
         Dictionary(uniqueKeysWithValues: EcoTaskKind.allCases.map { ($0.rawValue, upgradeTier(for: $0)) })
     }
 
-    /// True if this habit's street fixture has changed since the user last tapped it.
     func upgradeIsNew(_ kind: EcoTaskKind) -> Bool {
         upgradeTier(for: kind) > (seenUpgradeTiers[kind.rawValue] ?? 0)
     }
@@ -396,14 +370,12 @@ class AppState: ObservableObject {
         lastChallengeWeek == WeeklyChallenge.weekKey(for: Date())
     }
 
-    /// For the demo bar: push the community toward its next level.
     func addDemoPoints() {
         bonusPoints += 10
         checkProgress()
     }
 
-    /// Runs after anything that earns progress: pays out the weekly challenge (once a week)
-    /// and announces a community level-up (once per level).
+    // Pays the weekly challenge and announces level-ups (once each).
     private func checkProgress() {
         let challenge = weeklyChallenge
         if !weeklyChallengeDone,
@@ -418,7 +390,7 @@ class AppState: ObservableObject {
         let level = communityLevel
         if level > lastSeenCommunityLevel {
             lastSeenCommunityLevel = level
-            celebrations.append("Your community is now \(CommunityLevel.names[level])! \(CommunityLevel.unlocks[level]) unlocked.")
+            celebrations.append("Your community reached \(CommunityLevel.names[level])! You unlocked \(CommunityLevel.unlocks[level].lowercased()).")
         }
     }
 
@@ -430,8 +402,7 @@ class AppState: ObservableObject {
         volunteerLog.filter { $0.category == category }.map(\.date).max()
     }
 
-    /// Lively = you've volunteered for this place in the last two weeks. Uses `now`,
-    /// so the demo controls can fast-forward a place into going quiet.
+    // Uses `now` so the demo bar can fast-forward this.
     func isLively(_ category: VolunteerCategory) -> Bool {
         guard let last = lastVolunteered(in: category) else { return false }
         return now.timeIntervalSince(last) < VolunteerCategory.livelyDays * 86_400
@@ -492,7 +463,7 @@ class AppState: ObservableObject {
         placedItems[index].y = min(max(y, Self.yardYRange.lowerBound), Self.yardYRange.upperBound)
     }
 
-    /// Free care for every placed item of one kind — the reward for doing the matching habit.
+    // Free care for matching items when you do the real habit.
     private func tendItems(of kind: GardenItemKind) {
         let matchingIDs = Set(shopItems.filter { $0.kind == kind }.map(\.id))
         for index in placedItems.indices where matchingIDs.contains(placedItems[index].itemID) {
@@ -502,8 +473,7 @@ class AppState: ObservableObject {
         refreshReminders()
     }
 
-    /// Water a plant: costs coins, resets health to full, and advances growth stage.
-    /// Returns false (no charge, no effect) if the user can't afford it.
+    // Returns false if the user can't afford it.
     @discardableResult
     func waterItem(id: UUID) -> Bool {
         guard coins >= wateringCost else { return false }

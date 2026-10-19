@@ -1,21 +1,13 @@
 import SwiftUI
 
-// Hand-drawn garden art. Every item has four growth stages and each stage is its own
-// drawing (different silhouette and height), not just a bigger copy of the last one.
-//
-// All art is drawn in a "design space" measured in units: x runs -60...60 around the
-// plant's base, y runs upward from the ground (0) to ~110. PlantSprite scales that to
-// whatever size it is given.
+// Drawn plant art. Units: x -60...60, y up from the ground.
 
 extension GardenItemKind {
-    /// Living plants bend and yellow as they dry out; bins, barrels and insects don't.
-    var isPlant: Bool { self == .seedling || self == .flower || self == .tree }
+    var isPlant: Bool { self == .seedling || self == .flower || self == .tree || self == .bluebonnet }
 
-    /// Structures stand still; everything else leans gently in the breeze.
-    var swaysInWind: Bool { self != .compostBin && self != .rainBarrel }
+    var swaysInWind: Bool { self != .compostBin && self != .rainBarrel && self != .birdHouse }
 
-    /// Rough width/height of the drawn art at each stage, in design units —
-    /// used for tap areas, ground shadows and positioning labels around the art.
+    // Approximate art size per stage (design units), for tap areas and shadows.
     func footprint(stage: Int) -> CGSize {
         let table: [(CGFloat, CGFloat)]
         switch self {
@@ -25,6 +17,8 @@ extension GardenItemKind {
         case .compostBin: table = [(52, 40), (52, 44), (52, 62), (70, 58)]
         case .rainBarrel: table = [(42, 50), (42, 56), (64, 90), (70, 90)]
         case .butterfly: table = [(44, 34), (56, 44), (46, 64), (50, 84)]
+        case .bluebonnet: table = [(24, 12), (32, 22), (34, 34), (48, 46)]
+        case .birdHouse: table = [(22, 36), (30, 62), (40, 66), (50, 68)]
         }
         let entry = table[min(max(stage, 0), table.count - 1)]
         return CGSize(width: entry.0, height: entry.1)
@@ -35,16 +29,13 @@ struct PlantSprite: View {
     let kind: GardenItemKind
     let stage: Int
     var health: Double = 100
-    /// Width of the sprite's frame in points. Height follows from `designSize`.
     var size: CGFloat = 110
 
     static let designSize = CGSize(width: 120, height: 132)
-    /// Design units between the bottom of the frame and the ground line.
     static let groundInset: CGFloat = 10
-    /// Where the plant meets the ground — the anchor to rotate/scale around.
     static let groundAnchor = UnitPoint(x: 0.5, y: (designSize.height - groundInset) / designSize.height)
 
-    /// 0 while healthy, rising to 1 as health runs out.
+    // 0 healthy ... 1 fully wilted
     private var wilt: Double { min(1, max(0, (60 - health) / 60)) }
 
     var body: some View {
@@ -60,7 +51,6 @@ struct PlantSprite: View {
         }
         .frame(width: size, height: size * Self.designSize.height / Self.designSize.width)
         .saturation(1 - wilt * 0.35)
-        // Decorative for VoiceOver — whatever shows the sprite describes it in words.
         .accessibilityHidden(true)
     }
 
@@ -81,20 +71,16 @@ struct PlantSprite: View {
 
 // MARK: - Painter
 
-/// Draws in design units onto a Canvas. Also used for the community buildings in TownArt.swift.
 struct PlantPainter {
     let ctx: GraphicsContext
-    /// Points per design unit.
     let u: CGFloat
-    /// The base of the plant (design 0,0) in canvas points.
     let origin: CGPoint
     let wilt: Double
     let bends: Bool
 
     // MARK: Primitives
 
-    /// Design point -> canvas point. A wilting plant slumps: the higher a point is,
-    /// the further it leans over and the more it sinks.
+    // Wilting plants lean and sink more the higher the point is.
     func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
         var dx = x
         var dy = y
@@ -123,7 +109,7 @@ struct PlantPainter {
         for b in list { dot(b.0, b.1, b.2, color) }
     }
 
-    /// Axis-aligned box with its bottom-left corner at (x, y).
+    // (x, y) is the bottom-left corner
     func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, radius: CGFloat = 0, _ color: Color) {
         let topLeft = pt(x, y + h)
         let r = CGRect(x: topLeft.x, y: topLeft.y, width: w * u, height: h * u)
@@ -139,7 +125,6 @@ struct PlantPainter {
         ctx.fill(p, with: .color(color))
     }
 
-    /// A curved line from one point to another; `bow` pushes the middle sideways.
     func stem(_ x0: CGFloat, _ y0: CGFloat, _ x1: CGFloat, _ y1: CGFloat, bow: CGFloat = 0, width: CGFloat, _ color: Color) {
         var p = Path()
         p.move(to: pt(x0, y0))
@@ -147,8 +132,7 @@ struct PlantPainter {
         ctx.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: width * u, lineCap: .round))
     }
 
-    /// A pointed leaf growing out of (x, y). `angle` is degrees from straight up,
-    /// positive to the right. Leaves hang lower as the plant wilts.
+    // angle: degrees from straight up, positive = right
     func leaf(_ x: CGFloat, _ y: CGFloat, angle: Double, length: CGFloat, width: CGFloat, _ color: Color, droops: Bool = true) {
         var a = angle
         if droops { a += (angle < 0 ? -1 : 1) * wilt * 50 }
@@ -188,6 +172,8 @@ struct PlantPainter {
         case .compostBin: compostBin(stage)
         case .rainBarrel: rainBarrel(stage)
         case .butterfly: butterfly(stage, time: time)
+        case .bluebonnet: bluebonnet(stage)
+        case .birdHouse: birdHouse(stage)
         }
     }
 
@@ -408,7 +394,7 @@ struct PlantPainter {
         let metal = Color(red: 0.62, green: 0.66, blue: 0.70)
         let hoop = Color(red: 0.30, green: 0.30, blue: 0.32)
         let brass = Color(red: 0.78, green: 0.62, blue: 0.28)
-        // from stage 1 the barrel sits on a stand so a watering can fits under the tap
+        // on a stand from stage 1
         let lift: CGFloat = stage >= 1 ? 6 : 0
 
         if stage >= 1 {
@@ -435,7 +421,7 @@ struct PlantPainter {
         stem(-17.2, lift + 10, 17.2, lift + 10, width: 2.2, hoop)
         stem(-17.2, lift + 34, 17.2, lift + 34, width: 2.2, hoop)
 
-        // open top — you can see water once it's full
+        // open top, water shows once it's full
         oval(0, lift + 44, 15, 4, Theme.woodDark)
         oval(0, lift + 44, 12.5, 3, stage >= 3 ? Theme.water : Theme.compost)
         if stage >= 3 { oval(-4, lift + 44.6, 4, 0.9, .white.opacity(0.55)) }
@@ -464,6 +450,135 @@ struct PlantPainter {
             bloom(-32, 11, r: 4.5, Theme.petal)
             stem(-24, 0, -23, 7, width: 1.1, Theme.leaf)
             bloom(-23, 8, r: 3.6, Theme.petalLight)
+        }
+    }
+
+    // MARK: Bluebonnet: seedling -> rosette -> budding -> in bloom
+
+    // Bluebonnet leaves are "hand-shaped": five leaflets from one point.
+    private func palmLeaf(_ x: CGFloat, _ y: CGFloat, size: CGFloat, _ color: Color) {
+        for angle in [-70.0, -35, 0, 35, 70] {
+            leaf(x, y, angle: angle, length: size, width: size * 0.4, color)
+        }
+    }
+
+    // A flower spike: blue florets up the stem with a white tip, or green buds before it opens.
+    private func spike(_ x: CGFloat, base: CGFloat, height: CGFloat, budding: Bool) {
+        let blue = Color(red: 0.24, green: 0.36, blue: 0.80).mix(with: Theme.wilt, by: wilt * 0.6)
+        stem(x, base, x, base + height, width: 1.6, foliage(Theme.leaf))
+        let count = Int(height / 3.2)
+        for i in 0..<count {
+            let y = base + 4 + CGFloat(i) * 3.2
+            let side: CGFloat = i % 2 == 0 ? -1 : 1
+            let nearTop = CGFloat(i) > CGFloat(count) * 0.72
+            let color: Color
+            if budding {
+                color = CGFloat(i) < CGFloat(count) * 0.5 ? blue.mix(with: .white, by: 0.45) : foliage(Theme.leafLight)
+            } else {
+                color = nearTop ? Color(white: 0.97) : blue
+            }
+            let r: CGFloat = (budding ? 2.0 : 2.4) * (1 - CGFloat(i) / CGFloat(count) * 0.35)
+            oval(x + side * 1.8, y, r, r * 0.8, color)
+            if !budding && !nearTop && i % 3 == 0 {
+                dot(x + side * 2.2, y + 0.6, 0.7, .white)
+            }
+        }
+    }
+
+    private func bluebonnet(_ stage: Int) {
+        let light = foliage(Theme.leafLight)
+        let mid = foliage(Theme.leaf)
+        let dark = foliage(Theme.leafDark)
+
+        switch stage {
+        case 0:
+            mound(11)
+            stem(0, 1, 0, 5, width: 1.2, mid)
+            palmLeaf(0, 6, size: 6, light)
+        case 1:
+            mound(14)
+            stem(-2, 1, -6, 8, width: 1.2, mid)
+            stem(2, 1, 6, 9, width: 1.2, mid)
+            stem(0, 1, 0, 12, width: 1.2, mid)
+            palmLeaf(-6, 8, size: 7, mid)
+            palmLeaf(6, 9, size: 7, dark)
+            palmLeaf(0, 12, size: 8, light)
+        case 2:
+            mound(15)
+            palmLeaf(-6, 7, size: 7, mid)
+            palmLeaf(6, 8, size: 7, dark)
+            spike(0, base: 6, height: 26, budding: true)
+            palmLeaf(0, 9, size: 6, light)
+        default:
+            mound(20)
+            palmLeaf(-12, 7, size: 8, mid)
+            palmLeaf(12, 8, size: 8, dark)
+            spike(-9, base: 6, height: 28, budding: false)
+            spike(10, base: 6, height: 26, budding: false)
+            spike(0, base: 8, height: 34, budding: false)
+            palmLeaf(-4, 10, size: 7, light)
+            palmLeaf(5, 9, size: 7, mid)
+        }
+    }
+
+    // MARK: Bird house: empty post -> birdhouse -> nesting -> busy nest
+
+    private func bird(_ x: CGFloat, _ y: CGFloat, facing f: CGFloat, _ color: Color) {
+        let shade = color.mix(with: .black, by: 0.2)
+        poly([(x - 3.5 * f, y + 0.5), (x - 7 * f, y + 2), (x - 6.5 * f, y - 1)], shade)
+        oval(x, y, 4, 2.8, color)
+        oval(x - 0.5 * f, y + 0.3, 2.4, 1.6, shade)
+        dot(x + 3 * f, y + 2.5, 2.2, color)
+        poly([(x + 5 * f, y + 2.9), (x + 7.2 * f, y + 2.5), (x + 5 * f, y + 2.1)], Theme.sunflower)
+        dot(x + 3.6 * f, y + 3, 0.45, Theme.bark)
+    }
+
+    private func house(_ y0: CGFloat) {
+        rect(-10, y0, 20, 18, radius: 1, Theme.wood)
+        stem(-10, y0 + 6, 10, y0 + 6, width: 0.5, Theme.woodDark.opacity(0.5))
+        stem(-10, y0 + 12, 10, y0 + 12, width: 0.5, Theme.woodDark.opacity(0.5))
+        poly([(-13, y0 + 18), (13, y0 + 18), (0, y0 + 28)], Color(red: 0.55, green: 0.27, blue: 0.22))
+        dot(0, y0 + 10, 3.4, Color(red: 0.18, green: 0.12, blue: 0.08))
+        dot(0, y0 + 5.2, 0.9, Theme.woodDark)
+    }
+
+    private func seedTray(_ y: CGFloat, full: Bool) {
+        rect(-11, y, 22, 2.5, Theme.wood)
+        rect(-11, y + 2.5, 1.5, 2, Theme.wood)
+        rect(9.5, y + 2.5, 1.5, 2, Theme.wood)
+        if full {
+            for (i, x) in stride(from: -8.0, through: 8.0, by: 2.0).enumerated() {
+                dot(CGFloat(x), y + 3.2, 0.9, i % 2 == 0 ? Theme.sunflower : Theme.soil)
+            }
+        }
+    }
+
+    private func birdHouse(_ stage: Int) {
+        oval(0, 0, 9, 2, Theme.soil.opacity(0.6))
+
+        switch stage {
+        case 0:
+            rect(-1.8, 0, 3.6, 30, Theme.woodDark)
+            seedTray(30, full: false)
+        case 1:
+            rect(-1.8, 0, 3.6, 34, Theme.woodDark)
+            house(34)
+        case 2:
+            rect(-1.8, 0, 3.6, 34, Theme.woodDark)
+            house(34)
+            // twigs poking out of the hole
+            stem(-3, 44.5, 3.5, 43.5, width: 0.6, Theme.trunk)
+            stem(-2, 43, 2.5, 45.5, width: 0.6, Theme.trunk)
+            bird(4, 63.5, facing: -1, Theme.water)
+        default:
+            rect(-1.8, 0, 3.6, 34, Theme.woodDark)
+            seedTray(22, full: true)
+            house(34)
+            // a chick peeking out
+            dot(0, 44.4, 2.4, Color(red: 0.62, green: 0.48, blue: 0.32))
+            poly([(-0.9, 43.4), (0.9, 43.4), (0, 41.8)], Theme.sunflower)
+            bird(5, 63.5, facing: -1, Theme.water)
+            bird(-7, 26.8, facing: 1, Theme.petal)
         }
     }
 
@@ -559,7 +674,7 @@ struct PlantPainter {
 }
 
 #Preview("All stages") {
-    let kinds: [GardenItemKind] = [.seedling, .flower, .tree, .compostBin, .rainBarrel, .butterfly]
+    let kinds: [GardenItemKind] = [.seedling, .flower, .tree, .compostBin, .rainBarrel, .butterfly, .bluebonnet, .birdHouse]
     return ScrollView {
         VStack(spacing: 4) {
             ForEach(kinds, id: \.self) { kind in

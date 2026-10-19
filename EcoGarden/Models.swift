@@ -3,7 +3,6 @@ import SwiftUI
 
 // MARK: - Sustainability Task
 
-/// Which habit a task is — stable across launches, so impact can be tallied per habit.
 enum EcoTaskKind: String, Codable, CaseIterable {
     case recycle, compost, reusable, donate, water, travel
 }
@@ -19,24 +18,21 @@ struct EcoTask: Identifiable, Codable {
     var localURL: String? = nil // official page behind the tip
     var kind: EcoTaskKind? = nil
 
-    // Repeatable per day — tracks how many times this was done today
+    // Repeatable, so this counts how many times it was done today
     var completionsToday: Int = 0
     var lastCompletedDate: Date? = nil
-    var proofFileName: String? = nil // most recent photo proof — a file kept by ProofStore
+    var proofFileName: String? = nil // most recent photo proof (a file in ProofStore)
     var proofDate: Date? = nil
-    /// Where older versions kept the photo itself. Only read once, to move it into a file.
+    // Old storage, only read to migrate.
     var proofImageData: Data? = nil
 }
 
-// Starter task list — expand this however you like.
-// Local tips are for Baytown, Texas, taken from the City of Baytown, Harris County Transit,
-// Goodwill Houston and City of Houston websites (checked October 2026). Hours, fees and phone
-// numbers change — re-check them against each localURL before submitting.
+// Starter tasks with Baytown tips (checked Oct 2026, re-check links before submitting).
 extension EcoTask {
     static let starterTasks: [EcoTask] = [
         EcoTask(
             title: "Recycle Something", description: "Recycle plastic, paper, or glass today.", coinReward: 10, icon: "arrow.3.trianglepath",
-            localTip: "Baytown picks up recycling at the curb once a week — carts out by 7 AM. No cart? Call Public Works at 281-420-5300. Cardboard, glass, cans and old electronics can also go to the Green Center, 1601 W Main (Tue–Fri 12–7, Sat 9–4; bring your ID and water bill).",
+            localTip: "Baytown picks up recycling at the curb once a week, so have your cart out by 7 AM. No cart? Call Public Works at 281-420-5300. Cardboard, glass, cans and old electronics can also go to the Green Center, 1601 W Main (Tue–Fri 12–7, Sat 9–4; bring your ID and water bill).",
             localURL: "https://www.baytown.org/295", kind: .recycle),
         EcoTask(
             title: "Compost Food Scraps", description: "Compost instead of trashing food waste.", coinReward: 15, icon: "leaf.fill",
@@ -44,7 +40,7 @@ extension EcoTask {
             localURL: "https://www.houstontx.gov/council/5/composting.html", kind: .compost),
         EcoTask(
             title: "Reusable Bag/Bottle", description: "Use a reusable bag or water bottle today.", coinReward: 5, icon: "bag.fill",
-            localTip: "Plastic bags aren't on the Baytown Green Center's recycling list — it takes #1 and #2 plastic containers. Bringing your own bag or bottle is how you keep them out of the trash.",
+            localTip: "The Baytown Green Center only recycles #1 and #2 plastic containers, so plastic bags usually end up in the trash. Bringing your own bag or bottle keeps them out of it.",
             localURL: "https://baytown.org/1227", kind: .reusable),
         EcoTask(
             title: "Donate an Item", description: "Donate clothes, books, or household items.", coinReward: 20, icon: "gift.fill",
@@ -52,7 +48,7 @@ extension EcoTask {
             localURL: "https://www.goodwillhouston.org/locations/baytown", kind: .donate),
         EcoTask(
             title: "Reduce Water Use", description: "Take a shorter shower or fix a leak.", coinReward: 10, icon: "drop.fill",
-            localTip: "The City of Baytown's leak checks: put food coloring in the toilet tank and wait 20 minutes — color in the bowl means a leak. Or turn off all the water and watch your meter for 15 minutes; if it moves, something is running.",
+            localTip: "The City of Baytown's leak checks: put food coloring in the toilet tank and wait 20 minutes. If color shows up in the bowl, there's a leak. Or turn off all the water and watch your meter for 15 minutes; if it moves, something is running.",
             localURL: "https://www.baytown.org/Blog.aspx?IID=282", kind: .water),
         EcoTask(
             title: "Walk or Bike Instead of Drive", description: "Skip the car for a short trip.", coinReward: 15, icon: "bicycle",
@@ -63,18 +59,14 @@ extension EcoTask {
 
 // MARK: - Impact estimates
 
-/// Deliberately conservative per-completion estimates. The assumptions and sources are
-/// spelled out for the user on the About page — keep the two in sync.
+// The About page explains these assumptions, keep them in sync.
 extension EcoTaskKind {
-    /// One walk/bike trip = a 2-mile car trip avoided, at the EPA's average of
-    /// about 400 g of CO₂ per mile (800 g ≈ 1.8 lb).
+    // 2-mile car trip at the EPA's ~400 g CO2/mile = ~1.8 lb
     var co2PoundsAvoided: Double { self == .travel ? 1.8 : 0 }
 
-    /// One water task = a shower 2 minutes shorter, at the federal standard
-    /// showerhead flow of 2.5 gallons per minute.
+    // 2 minutes less in the shower at 2.5 gal/min
     var gallonsSaved: Double { self == .water ? 5 : 0 }
 
-    /// Counted as one item, with no weight claimed.
     var keepsItemOutOfLandfill: Bool {
         self == .recycle || self == .compost || self == .reusable || self == .donate
     }
@@ -82,8 +74,7 @@ extension EcoTaskKind {
 
 // MARK: - Habits that tend the garden
 
-/// Some garden items stand for a real habit, so doing that habit looks after them for free:
-/// composting turns your Compost Bins, saving water fills your Rain Barrels.
+// Composting tends Compost Bins, saving water fills Rain Barrels.
 extension EcoTaskKind {
     var tendsItem: GardenItemKind? {
         switch self {
@@ -93,7 +84,6 @@ extension EcoTaskKind {
         }
     }
 
-    /// Shown on the task so the link to the garden is visible before you complete it.
     var gardenBonusText: String? {
         switch self {
         case .compost: return "First one today turns every Compost Bin for free"
@@ -112,11 +102,9 @@ struct ImpactSummary {
 
 // MARK: - Garden Item (shop item the user can buy & place)
 
-/// What an item *is* — drives which art gets drawn for it and what its growth stages are called.
 enum GardenItemKind: String, Codable {
-    case seedling, flower, tree, compostBin, rainBarrel, butterfly
+    case seedling, flower, tree, compostBin, rainBarrel, butterfly, bluebonnet, birdHouse
 
-    /// Display name for each of the four growth stages (index 0...3).
     var stageNames: [String] {
         switch self {
         case .seedling: return ["Sprout", "Seedling", "Bush", "Berry Bush"]
@@ -125,47 +113,50 @@ enum GardenItemKind: String, Codable {
         case .compostBin: return ["Empty", "Filling", "Composting", "Rich Soil"]
         case .rainBarrel: return ["Empty", "Collecting", "Filling", "Overflowing"]
         case .butterfly: return ["Egg", "Caterpillar", "Chrysalis", "Butterfly"]
+        case .bluebonnet: return ["Seedling", "Rosette", "Budding", "In Bloom"]
+        case .birdHouse: return ["Empty Post", "Birdhouse", "Nesting", "Busy Nest"]
         }
     }
 
-    /// What tending this item is called — you water a plant, but you turn compost,
-    /// fill a rain barrel and feed a butterfly.
     var careVerb: String {
         switch self {
         case .compostBin: return "Turn"
         case .butterfly: return "Feed"
+        case .birdHouse: return "Refill"
         case .rainBarrel: return "Fill"
         default: return "Water"
         }
     }
 
-    /// The same action as a noun, for "Feeding costs 5 coins".
+    // e.g. "Feeding costs 5 coins"
     var careGerund: String {
         switch self {
         case .compostBin: return "Turning"
         case .butterfly: return "Feeding"
+        case .birdHouse: return "Refilling"
         case .rainBarrel: return "Filling"
         default: return "Watering"
         }
     }
 
-    /// One round of care, for "3 more turns to Rich Soil".
+    // e.g. "3 more turns"
     func careCountNoun(_ count: Int) -> String {
         let singular: String
         switch self {
         case .compostBin: singular = "turn"
         case .butterfly: singular = "feeding"
+        case .birdHouse: singular = "refill"
         case .rainBarrel: singular = "fill"
         default: singular = "watering"
         }
         return count == 1 ? singular : singular + "s"
     }
 
-    /// SF Symbol shown on the care button and the "needs care" badge.
     var careIcon: String {
         switch self {
         case .compostBin: return "arrow.triangle.2.circlepath"
         case .butterfly: return "camera.macro"
+        case .birdHouse: return "bird.fill"
         default: return "drop.fill"
         }
     }
@@ -190,15 +181,16 @@ struct GardenItem: Identifiable, Codable {
 }
 
 extension GardenItem {
-    // IDs are fixed (not UUID()) because PlacedItem.itemID is persisted and has to
-    // still match these after the app relaunches.
+    // Fixed IDs so saved items still match after a relaunch.
     static let shopItems: [GardenItem] = [
         GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000001")!, kind: .seedling, name: "Seedling", cost: 10, tintColor: "green"),
         GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000002")!, kind: .flower, name: "Flower", cost: 25, tintColor: "yellow"),
         GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000003")!, kind: .tree, name: "Tree", cost: 50, tintColor: "green"),
         GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000004")!, kind: .compostBin, name: "Compost Bin", cost: 40, tintColor: "brown"),
         GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000005")!, kind: .rainBarrel, name: "Rain Barrel", cost: 45, tintColor: "blue"),
-        GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000006")!, kind: .butterfly, name: "Butterfly", cost: 30, tintColor: "yellow")
+        GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000006")!, kind: .butterfly, name: "Butterfly", cost: 30, tintColor: "yellow"),
+        GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000007")!, kind: .bluebonnet, name: "Bluebonnet", cost: 20, tintColor: "blue"),
+        GardenItem(id: UUID(uuidString: "E0C06A2D-0000-4000-8000-000000000008")!, kind: .birdHouse, name: "Bird House", cost: 35, tintColor: "brown")
     ]
 }
 
@@ -214,22 +206,21 @@ struct PlacedItem: Identifiable, Codable {
 
     var plantedDate: Date = Date()
     var lastWateredDate: Date = Date()
-    var careCount: Int = 0 // number of times watered — drives growth stage
+    var careCount: Int = 0 // number of times watered, drives growth stage
 }
 
 extension PlacedItem {
     /// Hours it takes for a fully-watered plant to wilt completely without care.
     static let decayWindowHours: Double = 18.0
 
-    /// 0 (wilted) ... 100 (freshly watered), computed from elapsed time — no timers needed.
+    // 0...100, from time since last watered.
     func health(asOf date: Date = Date()) -> Double {
         let hoursSinceWater = date.timeIntervalSince(lastWateredDate) / 3600
         let raw = 100 - (hoursSinceWater / Self.decayWindowHours) * 100
         return min(100, max(0, raw))
     }
 
-    /// Growth stage 0...3, driven by cumulative care rather than current health,
-    /// so a plant's maturity reflects long-term tending, not just "did you water today."
+    // Based on total care, not current health.
     var stage: Int {
         switch careCount {
         case 0: return 0
@@ -239,7 +230,6 @@ extension PlacedItem {
         }
     }
 
-    /// Waterings still needed to reach the next stage, or nil once fully grown.
     var careUntilNextStage: Int? {
         switch careCount {
         case ..<1: return 1
@@ -252,8 +242,6 @@ extension PlacedItem {
 
 // MARK: - Volunteering
 
-/// The five kinds of volunteering the app tracks. Each one builds a different place on
-/// the street behind your garden.
 enum VolunteerCategory: String, Codable, CaseIterable, Identifiable {
     case animals, library, nature, food, homes
 
@@ -269,7 +257,6 @@ enum VolunteerCategory: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// The place this kind of volunteering builds.
     var buildingName: String {
         switch self {
         case .animals: return "Animal Shelter"
@@ -300,18 +287,14 @@ enum VolunteerCategory: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Every place goes through the same four steps.
     static let stageNames = ["Empty Lot", "Under Construction", "Open", "Thriving"]
-    /// Total volunteer hours needed to reach each level.
     static let hourThresholds: [Double] = [0, 1, 4, 10]
-    /// A place stays lively for this many days after you last volunteered for it.
     static let livelyDays: Double = 14
 
     static func level(forHours hours: Double) -> Int {
         hourThresholds.lastIndex(where: { hours >= $0 }) ?? 0
     }
 
-    /// Hours still needed to reach the next level, or nil once it's fully built.
     static func hoursToNextLevel(from hours: Double) -> Double? {
         let next = level(forHours: hours) + 1
         guard next < hourThresholds.count else { return nil }
@@ -319,7 +302,6 @@ enum VolunteerCategory: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// A real place to volunteer.
 struct Opportunity: Identifiable {
     let id: String
     let category: VolunteerCategory
@@ -331,9 +313,7 @@ struct Opportunity: Identifiable {
     let url: String
 }
 
-// Taken from the City of Baytown volunteer pages, Houston Food Bank and Baytown Habitat for
-// Humanity (checked October 2026). Programs open, close and change their rules — re-check
-// every link before submitting.
+// From the City of Baytown, Houston Food Bank and Habitat pages (Oct 2026), re-check before submitting.
 extension Opportunity {
     private static let parksPage = "https://baytown.org/1409/Wetlands-Nature-Center-and-Park-Voluntee"
 
@@ -355,7 +335,7 @@ extension Opportunity {
             url: "https://www.baytown.org/305/Teen-Volunteering"),
         Opportunity(
             id: "epic-teens", category: .nature, organization: "Eddie V. Gray Wetlands Center", title: "E.P.I.C. Teen Volunteers",
-            details: "A free service-learning club that tackles coastal environmental problems with hands-on projects. Meets Wednesdays 4–5 PM — no registration needed.",
+            details: "A free service-learning club that tackles coastal environmental problems with hands-on projects. Meets Wednesdays 4–5 PM, and you don't need to sign up.",
             location: "1724 Market St, Baytown", ageNote: "High school students",
             url: parksPage),
         Opportunity(
@@ -365,8 +345,8 @@ extension Opportunity {
             url: parksPage),
         Opportunity(
             id: "park-projects", category: .nature, organization: "Baytown Parks & Recreation", title: "Park projects for groups",
-            details: "Coastline cleanups, painting and building projects, bird blinds, garden beds and litter pickups — good for a club or class.",
-            location: "Baytown Nature Center and city parks", ageNote: "Groups — contact the Parks team through the page",
+            details: "Coastline cleanups, painting and building projects, bird blinds, garden beds and litter pickups. A good fit for a club or class.",
+            location: "Baytown Nature Center and city parks", ageNote: "For groups. Contact the Parks team through the page",
             url: parksPage),
         Opportunity(
             id: "food-bank", category: .food, organization: "Houston Food Bank", title: "Warehouse shift",
@@ -381,7 +361,6 @@ extension Opportunity {
     ]
 }
 
-/// One logged stretch of volunteering.
 struct VolunteerEntry: Identifiable, Codable {
     var id: UUID = UUID()
     var category: VolunteerCategory
@@ -392,15 +371,12 @@ struct VolunteerEntry: Identifiable, Codable {
     var proofFileName: String? = nil
 }
 
-/// "3" for whole hours, "2.5" otherwise.
 func formatHours(_ hours: Double) -> String {
     hours == hours.rounded() ? String(format: "%.0f", hours) : String(format: "%.1f", hours)
 }
 
 // MARK: - Map places
 
-/// A real spot on the community map: somewhere to volunteer, or one of the drop-off
-/// sites from the task tips.
 struct CommunityPlace: Identifiable {
     enum Kind: Equatable {
         case volunteer(VolunteerCategory)
@@ -413,16 +389,12 @@ struct CommunityPlace: Identifiable {
     let latitude: Double
     let longitude: Double
     let kind: Kind
-    /// One line on what you can do there.
     let whatsHere: String
-    /// Opportunities (from Opportunity.baytown) you can log hours for at this place.
     var opportunityIDs: [String] = []
     let url: String
 }
 
-// Addresses from the City of Baytown, Goodwill Houston, Houston Food Bank and Baytown
-// Habitat websites. Coordinates were looked up from those addresses with Apple Maps and
-// OpenStreetMap (October 2026) and saved here, so the map works without a connection.
+// Coordinates looked up from the addresses (Apple Maps / OpenStreetMap, Oct 2026).
 extension CommunityPlace {
     static let baytown: [CommunityPlace] = [
         CommunityPlace(
@@ -470,12 +442,10 @@ extension CommunityPlace {
 
 // MARK: - Green upgrades (eco habits change the street)
 
-/// Volunteering builds the places on the street; eco habits make the street around them
-/// greener. Each habit adds a fixture after 3 completions and upgrades it after 10.
+// Each habit adds a street fixture at 3 completions and upgrades it at 10.
 extension EcoTaskKind {
     static let upgradeThresholds = [3, 10]
 
-    /// What the habit adds to the street at tier 1 and tier 2.
     var upgradeNames: [String] {
         switch self {
         case .travel: return ["Bike Rack", "Bike Lane"]
@@ -487,19 +457,17 @@ extension EcoTaskKind {
         }
     }
 
-    /// How the habit is counted, for "3 walk or bike trips".
     var habitPhrase: String {
         switch self {
         case .travel: return "walk or bike trips"
-        case .recycle: return "times recycling"
-        case .compost: return "times composting"
-        case .water: return "water-saving days"
-        case .reusable: return "reusable bag or bottle days"
+        case .recycle: return "recycling tasks"
+        case .compost: return "composting tasks"
+        case .water: return "water-saving tasks"
+        case .reusable: return "reusable bag or bottle tasks"
         case .donate: return "donations"
         }
     }
 
-    /// 0 = nothing yet, 1 = first fixture, 2 = upgraded.
     func upgradeTier(forCount count: Int) -> Int {
         Self.upgradeThresholds.filter { count >= $0 }.count
     }
@@ -507,22 +475,18 @@ extension EcoTaskKind {
 
 // MARK: - Community level
 
-/// One level for the whole community, filled by eco tasks and volunteering together.
 enum CommunityLevel {
     static let pointsPerTask = 1
     static let pointsPerVolunteerHour = 3
 
     static let names = ["Quiet Street", "Growing Block", "Green Neighborhood", "Thriving Community", "Model Community"]
     static let thresholds = [0, 10, 30, 60, 100]
-    /// What reaching each level adds to the street (nothing for the first).
     static let unlocks = ["", "Street trees", "Streetlights", "Bunting flags", "Festival lights and balloons"]
 
-    /// 0-based level for a points total.
     static func level(forPoints points: Int) -> Int {
         thresholds.lastIndex(where: { points >= $0 }) ?? 0
     }
 
-    /// How far through the current level, 0...1 (1 at the top level).
     static func progress(forPoints points: Int) -> Double {
         let level = level(forPoints: points)
         guard level + 1 < thresholds.count else { return 1 }
@@ -538,7 +502,7 @@ enum CommunityLevel {
 
 // MARK: - Weekly challenge
 
-/// A goal each week that needs both kinds of doing good. Rotates so it isn't the same every week.
+// Rotates weekly.
 struct WeeklyChallenge {
     let ecoGoal: Int
     let hoursGoal: Double
@@ -553,7 +517,7 @@ struct WeeklyChallenge {
         return WeeklyChallenge(ecoGoal: goal.0, hoursGoal: goal.1)
     }
 
-    /// Identifies a week, e.g. "2026-42", so the reward is only paid once.
+    // e.g. "2026-42"
     static func weekKey(for date: Date) -> String {
         let cal = Calendar.current
         return "\(cal.component(.yearForWeekOfYear, from: date))-\(cal.component(.weekOfYear, from: date))"

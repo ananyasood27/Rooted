@@ -1,12 +1,9 @@
 import SwiftUI
 import MapKit
 
-/// The volunteer places and drop-off sites from the app, on a map of Baytown.
-/// Shown in the Volunteer tab when "Map" is picked.
 struct CommunityMapView: View {
     let filter: VolunteerCategory?
     let showDropOffs: Bool
-    /// Called with the opportunity to log hours for.
     let onLog: (Opportunity) -> Void
 
     @State private var selected: CommunityPlace? = nil
@@ -49,7 +46,6 @@ struct CommunityMapView: View {
             )
             .onAppear { camera = fittingCamera }
             .onChange(of: places.map(\.id)) { _, visibleIDs in
-                // Re-fit the map when the filter changes, and drop a selection that's now hidden.
                 withAnimation(.easeInOut(duration: 0.4)) { camera = fittingCamera }
                 if let current = selected, !visibleIDs.contains(current.id) { selected = nil }
             }
@@ -68,9 +64,7 @@ struct CommunityMapView: View {
 }
 
 extension CommunityMapView {
-    /// Frames the pins in Baytown. The Houston Food Bank is ~20 miles west, and fitting it
-    /// in too would shrink Baytown to one cluster of pins — so with no filter it sits just
-    /// off-screen (pan or pick "Food" to see it). A single category fits exactly its pins.
+    // Fit Baytown only; including the Houston Food Bank squashes everything else together.
     private var fittingCamera: MapCameraPosition {
         let local = places.filter { $0.longitude > -95.1 }
         guard filter == nil, local.count > 1 else { return .automatic }
@@ -111,14 +105,12 @@ private extension CommunityPlace {
         Opportunity.baytown.filter { opportunityIDs.contains($0.id) }
     }
 
-    /// Opens Apple Maps with directions here.
     var directionsURL: URL? {
         let name = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         return URL(string: "https://maps.apple.com/?daddr=\(latitude),\(longitude)&q=\(name)")
     }
 }
 
-/// A round pin in the place's colour with its icon, and a little point at the bottom.
 private struct PlacePin: View {
     let place: CommunityPlace
     let isSelected: Bool
@@ -155,7 +147,6 @@ private struct Triangle: Shape {
     }
 }
 
-/// Details for the tapped pin: what's there, directions, the official page, and logging hours.
 private struct PlaceCard: View {
     let place: CommunityPlace
     let onLog: (Opportunity) -> Void
@@ -221,7 +212,6 @@ private struct PlaceCard: View {
         .ecoCard()
     }
 
-    // One opportunity: a plain button. Several at the same place: pick which one.
     @ViewBuilder
     private var logButton: some View {
         let opportunities = place.opportunities

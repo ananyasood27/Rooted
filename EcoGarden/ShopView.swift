@@ -4,7 +4,6 @@ struct ShopView: View {
     @EnvironmentObject var appState: AppState
 
     let columns = [GridItem(.adaptive(minimum: 110), spacing: 12)]
-    /// The item just bought, for the "Planted!" toast.
     @State private var justPlanted: GardenItem? = nil
 
     var body: some View {
@@ -61,7 +60,6 @@ struct ShopView: View {
         }
     }
 
-    /// "Planted your Tree!" with a button that jumps to it in the Community tab.
     private func plantedToast(_ item: GardenItem) -> some View {
         HStack(spacing: 12) {
             PlantSprite(kind: item.kind, stage: 0, size: 34)
@@ -128,7 +126,6 @@ private struct ShopItemCard: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            // Preview the fully grown item, scaled so small and large art fill the card alike.
             ZStack(alignment: .bottom) {
                 Ellipse()
                     .fill(Theme.sage.opacity(0.30))

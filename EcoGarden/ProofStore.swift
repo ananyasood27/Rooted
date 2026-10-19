@@ -1,10 +1,7 @@
 import UIKit
 
-/// Photo proof for completed tasks. Photos are shrunk and kept as JPEG files on disk;
-/// a task only remembers its file's name. (They used to be stored full-size inside
-/// UserDefaults, which is rewritten on every change and isn't meant for images.)
+// Proof photos are resized and saved as files; tasks just store the file name.
 enum ProofStore {
-    /// Longest side of a saved photo, in pixels — plenty for viewing on a phone.
     private static let maxDimension: CGFloat = 1200
     private static let cache = NSCache<NSString, UIImage>()
 
@@ -13,8 +10,6 @@ enum ProofStore {
             .appendingPathComponent("Proofs", isDirectory: true)
     }
 
-    /// Shrinks and saves a photo. Returns its file name, or nil if the data isn't a
-    /// readable image or couldn't be written.
     static func save(_ imageData: Data) -> String? {
         guard let image = UIImage(data: imageData) else { return nil }
         let longestSide = max(image.size.width, image.size.height)
@@ -29,7 +24,7 @@ enum ProofStore {
         }
         guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { return nil }
 
-        // A fresh name every time, so a replaced photo can never show a stale cached image.
+        // New name each time so the cache never shows an old photo.
         let name = UUID().uuidString + ".jpg"
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

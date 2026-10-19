@@ -1,21 +1,17 @@
 import Foundation
 import UserNotifications
 
-/// Local notifications — scheduled on the phone itself, no server involved.
-/// Two kinds: a nudge every evening, and one alert when the first plant is due for care.
 enum Reminders {
     private static let dailyID = "ecogarden.daily"
     private static let thirstyID = "ecogarden.thirsty"
 
-    /// Shows the system "Allow notifications?" prompt the first time; afterwards it just
-    /// reports what the user chose.
     static func requestPermission(_ completion: @escaping (Bool) -> Void) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             DispatchQueue.main.async { completion(granted) }
         }
     }
 
-    /// Replaces whatever was scheduled before, so call it again whenever plants are tended.
+    // Clears and reschedules, so call it whenever plants are tended.
     static func schedule(for placedItems: [PlacedItem]) {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [dailyID, thirstyID])
@@ -32,8 +28,7 @@ enum Reminders {
             trigger: UNCalendarNotificationTrigger(dateMatching: sixPM, repeats: true)
         ))
 
-        // A plant counts as needing care once its health drops under 40%,
-        // which is 60% of the way through the decay window.
+        // Needs care below 40% health = 60% through the decay window.
         guard let longestWithoutCare = placedItems.map(\.lastWateredDate).min() else { return }
         let needsCareAt = longestWithoutCare.addingTimeInterval(PlacedItem.decayWindowHours * 3600 * 0.6)
         let secondsFromNow = needsCareAt.timeIntervalSinceNow

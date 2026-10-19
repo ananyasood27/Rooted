@@ -2,12 +2,7 @@ import Foundation
 import Security
 import CryptoKit
 
-/// The login account. EcoGarden has no server, so there is exactly one account and it
-/// lives on this device: the username plus a salted hash of the password, kept in the
-/// Keychain (the system's encrypted store for secrets). The password itself is never saved.
-///
-/// This is enough to keep a shared phone's garden private. It is not what an app with
-/// online accounts should do — that needs a server checking passwords, not the phone.
+// Single local account (no server): username + salted password hash in the Keychain.
 enum AccountStore {
     struct Account: Codable {
         var username: String
@@ -18,7 +13,6 @@ enum AccountStore {
     private static let service = "ananya.EcoGarden.account"
     private static let key = "account"
 
-    /// What identifies our one Keychain entry.
     private static var query: [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
@@ -38,7 +32,6 @@ enum AccountStore {
         return try? JSONDecoder().decode(Account.self, from: data)
     }
 
-    /// Saves a new account, replacing any old one. Returns false if the Keychain refuses.
     @discardableResult
     static func create(username: String, password: String) -> Bool {
         // A random salt means two people with the same password get different hashes.
@@ -52,7 +45,7 @@ enum AccountStore {
         return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
     }
 
-    /// True if these match the saved account. Usernames ignore capitalisation; passwords don't.
+    // Username match ignores case.
     static func verify(username: String, password: String) -> Bool {
         guard let account = load() else { return false }
         return account.username.lowercased() == username.lowercased()
@@ -63,8 +56,7 @@ enum AccountStore {
         SecItemDelete(query as CFDictionary)
     }
 
-    /// Hashing is one-way, so the saved value can't be turned back into the password.
-    /// Repeating it many times makes guessing passwords slow for anyone who copies the hash.
+    // Salted SHA-256, repeated to slow down guessing.
     private static func hash(_ password: String, salt: Data) -> Data {
         var digest = Data(SHA256.hash(data: salt + Data(password.utf8)))
         for _ in 0..<10_000 {

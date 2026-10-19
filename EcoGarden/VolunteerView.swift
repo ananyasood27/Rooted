@@ -1,8 +1,6 @@
 import SwiftUI
 import PhotosUI
 
-/// The volunteering half of the Do Good tab: real opportunities around Baytown. Logging
-/// hours here is what builds the places on the community street (BuildingLot in GardenView.swift).
 struct VolunteerSection: View {
     @EnvironmentObject var appState: AppState
     @State private var filter: VolunteerCategory? = nil
@@ -10,6 +8,7 @@ struct VolunteerSection: View {
     @State private var banner: String? = nil
     @State private var showMap = false
     @State private var showDropOffs = true
+    @State private var showHistory = false
 
     private var opportunities: [Opportunity] {
         guard let filter else { return Opportunity.baytown }
@@ -65,6 +64,9 @@ struct VolunteerSection: View {
                 recentSection
             }
         }
+        .sheet(isPresented: $showHistory) {
+            VolunteerHistoryView().environmentObject(appState)
+        }
         .sheet(item: $logging) { target in
             LogHoursSheet(target: target, onSaved: showBanner)
                 .environmentObject(appState)
@@ -73,7 +75,7 @@ struct VolunteerSection: View {
         .onChange(of: appState.volunteerFocus) { _, _ in applyFocus() }
     }
 
-    // A building's "Find ways to help" button sets volunteerFocus; pick it up as the filter.
+    // Set by a building's "Find ways to help" button.
     private func applyFocus() {
         guard let focus = appState.volunteerFocus else { return }
         filter = focus
@@ -118,7 +120,6 @@ struct VolunteerSection: View {
         )
     }
 
-    /// Two-part switch between the opportunity cards and the map.
     private var listMapSwitch: some View {
         HStack(spacing: 0) {
             ForEach([false, true], id: \.self) { isMap in
@@ -211,7 +212,15 @@ struct VolunteerSection: View {
 
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(text: "Recent hours")
+            HStack {
+                SectionLabel(text: "Recent hours")
+                Spacer()
+                if appState.volunteerLog.count > 5 {
+                    Button("See all \(appState.volunteerLog.count)") { showHistory = true }
+                        .font(Theme.caption(12))
+                        .foregroundColor(Theme.moss)
+                }
+            }
             VStack(spacing: 0) {
                 let recent = appState.volunteerLog.sorted { $0.date > $1.date }.prefix(5)
                 ForEach(Array(recent.enumerated()), id: \.element.id) { index, entry in
@@ -248,7 +257,7 @@ struct VolunteerSection: View {
     }
 }
 
-/// What the log sheet is for: a listed opportunity, or "somewhere else" (opportunity nil).
+// opportunity == nil means "somewhere else"
 private struct LogTarget: Identifiable {
     let id = UUID()
     let opportunity: Opportunity?
@@ -286,8 +295,6 @@ struct LogHoursButton: View {
     }
 }
 
-/// One place's progress: how many hours so far, how close the next level is,
-/// and whether it's lively or has gone quiet.
 private struct PlaceProgressRow: View {
     let category: VolunteerCategory
     let hours: Double
@@ -295,7 +302,6 @@ private struct PlaceProgressRow: View {
 
     private var level: Int { VolunteerCategory.level(forHours: hours) }
 
-    /// How far through the current level, 0...1.
     private var progress: Double {
         let thresholds = VolunteerCategory.hourThresholds
         guard level + 1 < thresholds.count else { return 1 }
@@ -400,7 +406,6 @@ private struct OpportunityCard: View {
     }
 }
 
-/// The form for logging hours. Photo is optional and uses the same ProofStore as task proof.
 private struct LogHoursSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
@@ -579,7 +584,7 @@ private struct LogHoursSheet: View {
                     Text(photoFile == nil ? "Add a photo" : "Change photo")
                         .font(Theme.display(14, weight: .semibold))
                         .foregroundColor(Theme.bark)
-                    Text("Optional — a picture from the day")
+                    Text("Optional. Add a picture from the day.")
                         .font(Theme.body(12))
                         .foregroundColor(Theme.stone)
                 }
@@ -627,6 +632,163 @@ private struct LogHoursSheet: View {
             onSaved("Logged \(formatHours(hours)) hrs · +\(coinsEarned) coins")
         }
         dismiss()
+    }
+}
+
+// Every volunteer entry ever logged, with totals. Handy as a service-hours record.
+struct VolunteerHistoryView: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var photoOnDisplay: ProofPhoto? = nil
+
+    private var entries: [VolunteerEntry] {
+        appState.volunteerLog.sorted { $0.date > $1.date }
+    }
+
+    private func hoursLabel(_ hours: Double) -> String {
+        "\(formatHours(hours)) \(hours == 1 ? "hr" : "hrs")"
+    }
+
+    private var totalHours: Double {
+        entries.reduce(0) { $0 + $1.hours }
+    }
+
+    // Newest month first, entries newest first inside each month.
+    private var months: [(title: String, entries: [VolunteerEntry])] {
+        var groups: [(title: String, entries: [VolunteerEntry])] = []
+        for entry in entries {
+            let title = entry.date.formatted(.dateTime.month(.wide).year())
+            if groups.last?.title == title {
+                groups[groups.count - 1].entries.append(entry)
+            } else {
+                groups.append((title: title, entries: [entry]))
+            }
+        }
+        return groups
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    totals
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionLabel(text: "By place")
+                        VStack(spacing: 0) {
+                            let used = VolunteerCategory.allCases.filter { appState.volunteerHours(in: $0) > 0 }
+                            ForEach(Array(used.enumerated()), id: \.element) { index, category in
+                                if index > 0 { Divider().padding(.leading, 52) }
+                                HStack(spacing: 12) {
+                                    CategoryBadge(category: category, size: 36)
+                                    Text(category.buildingName)
+                                        .font(Theme.display(14, weight: .semibold))
+                                        .foregroundColor(Theme.bark)
+                                    Spacer()
+                                    Text(hoursLabel(appState.volunteerHours(in: category)))
+                                        .font(Theme.display(13, weight: .semibold))
+                                        .foregroundColor(Theme.moss)
+                                }
+                                .padding(.vertical, 10)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .ecoCard()
+                    }
+
+                    ForEach(months, id: \.title) { month in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                SectionLabel(text: month.title)
+                                Spacer()
+                                Text(hoursLabel(month.entries.reduce(0) { $0 + $1.hours }))
+                                    .font(Theme.caption(11))
+                                    .foregroundColor(Theme.stone)
+                            }
+                            VStack(spacing: 0) {
+                                ForEach(Array(month.entries.enumerated()), id: \.element.id) { index, entry in
+                                    if index > 0 { Divider().padding(.leading, 56) }
+                                    entryRow(entry)
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .ecoCard()
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .background(Theme.skyWash.ignoresSafeArea())
+            .navigationTitle("Volunteer History")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+            .sheet(item: $photoOnDisplay) { photo in
+                ProofViewer(proof: photo)
+            }
+        }
+    }
+
+    private var totals: some View {
+        HStack(spacing: 0) {
+            totalItem(formatHours(totalHours), totalHours == 1 ? "hour" : "hours")
+            Divider().frame(height: 36)
+            totalItem("\(entries.count)", entries.count == 1 ? "time" : "times")
+            Divider().frame(height: 36)
+            totalItem("\(Set(entries.map(\.organization)).count)", "places")
+        }
+        .padding(.vertical, 16)
+        .ecoCard()
+    }
+
+    private func totalItem(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(Theme.display(24, weight: .bold))
+                .foregroundColor(Theme.bark)
+            Text(label)
+                .font(Theme.caption(11))
+                .foregroundColor(Theme.stone)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func entryRow(_ entry: VolunteerEntry) -> some View {
+        HStack(spacing: 12) {
+            if let file = entry.proofFileName, let photo = ProofStore.image(named: file) {
+                Button {
+                    photoOnDisplay = ProofPhoto(fileName: file, title: entry.organization)
+                } label: {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 34, height: 34)
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View photo from \(entry.organization)")
+            } else {
+                CategoryBadge(category: entry.category, size: 34)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.organization)
+                    .font(Theme.display(13.5, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+                Text("\(entry.category.buildingName) · \(entry.date.formatted(date: .abbreviated, time: .omitted))")
+                    .font(Theme.body(11.5))
+                    .foregroundColor(Theme.stone)
+            }
+            Spacer()
+            Text(hoursLabel(entry.hours))
+                .font(Theme.display(13, weight: .semibold))
+                .foregroundColor(Theme.moss)
+        }
+        .padding(.vertical, 10)
     }
 }
 

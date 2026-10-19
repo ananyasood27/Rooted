@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The first screen: create an account the first time, log in after that.
-/// The account is local to this device (see AccountStore) — there is no server.
+// Sign up / log in (local account, see AccountStore).
 struct WelcomeView: View {
     @EnvironmentObject var appState: AppState
 
@@ -42,7 +41,7 @@ struct WelcomeView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .onAppear {
-            // Someone who used the app before logins existed keeps their name and garden.
+            // Keeps the name of anyone who used the app before logins.
             if name.isEmpty { name = appState.userName }
         }
         .confirmationDialog(
@@ -77,7 +76,7 @@ struct WelcomeView: View {
             }
             .padding(.bottom, 18)
 
-            Text("EcoGarden")
+            Text("Rooted")
                 .font(Theme.display(32))
                 .foregroundColor(Theme.bark)
 
@@ -148,7 +147,6 @@ struct WelcomeView: View {
 
         switch mode {
         case .signUp:
-            // Check the fields in the order they appear, and say what's wrong with the first bad one.
             guard !cleanName.isEmpty else { return fail("Add your name so we know what to call you.") }
             guard cleanUsername.count >= 3, !cleanUsername.contains(" ") else {
                 return fail("Usernames need at least 3 characters and no spaces.")

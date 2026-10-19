@@ -1,7 +1,6 @@
 import SwiftUI
 import PhotosUI
 
-/// The eco habits half of the Do Good tab: today's tasks, proof photos and tips.
 struct HabitsSection: View {
     @EnvironmentObject var appState: AppState
 
@@ -58,8 +57,7 @@ struct HabitsSection: View {
             Button("Attach Photo") {
                 taskPendingPhoto = showProofChoice
                 showProofChoice = nil
-                // Give the dialog a moment to finish closing — opening the picker
-                // while it is still on screen can fail silently.
+                // Wait for the dialog to close or the picker may not open.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showPhotoPicker = true }
             }
             Button("Mark Complete (No Photo)") {
@@ -72,9 +70,7 @@ struct HabitsSection: View {
                 showProofChoice = nil
             }
         }
-        // The picker's open/closed state is kept separate from `taskPendingPhoto`:
-        // the picker closes itself the moment a photo is chosen, and the task must
-        // still be remembered when the choice arrives just after.
+        // Kept separate from taskPendingPhoto because the picker closes before the selection arrives.
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
         .onChange(of: selectedPhotoItem) { _, newItem in
             guard let newItem, let task = taskPendingPhoto else { return }
@@ -82,7 +78,7 @@ struct HabitsSection: View {
             taskPendingPhoto = nil
             Task {
                 let data = try? await newItem.loadTransferable(type: Data.self)
-                // Shrinking and saving a full-size photo is slow — keep it off the main thread.
+                // Resize off the main thread.
                 let fileName = await Task.detached { data.flatMap(ProofStore.save) }.value
                 if let fileName {
                     appState.completeTask(task, proofFile: fileName)
@@ -101,7 +97,7 @@ struct HabitsSection: View {
         }
     }
 
-    /// The street upgrade this task works toward, e.g. "Street: Bike Rack · 2/3".
+    // e.g. "Street: Bike Rack · 2/3"
     private func streetText(for task: EcoTask) -> String? {
         guard let kind = task.kind else { return nil }
         let count = appState.lifetimeCompletions[kind.rawValue] ?? 0
@@ -137,7 +133,7 @@ struct HabitsSection: View {
                 .frame(height: 6)
                 .padding(.top, 2)
 
-            Text("Tasks repeat — do one again today for a bigger bonus.")
+            Text("Do a task again today for a bigger bonus.")
                 .font(Theme.body(12.5))
                 .foregroundColor(Theme.stone)
         }
@@ -153,7 +149,7 @@ struct HabitsSection: View {
                 Text("Full clear bonus: +20 coins")
                     .font(Theme.display(14, weight: .semibold))
                     .foregroundColor(Theme.bark)
-                Text(appState.streak > 1 ? "\(appState.streak)-day streak — keep it going." : "Streak started. Come back tomorrow.")
+                Text(appState.streak > 1 ? "\(appState.streak)-day streak. Keep it going!" : "Streak started. Come back tomorrow.")
                     .font(Theme.body(12.5))
                     .foregroundColor(Theme.stone)
             }
@@ -344,14 +340,13 @@ private struct TaskRow: View {
     }
 }
 
-/// A saved proof photo, for showing full-size.
-private struct ProofPhoto: Identifiable {
+struct ProofPhoto: Identifiable {
     let fileName: String
     let title: String
     var id: String { fileName }
 }
 
-private struct ProofViewer: View {
+struct ProofViewer: View {
     let proof: ProofPhoto
     @Environment(\.dismiss) private var dismiss
 

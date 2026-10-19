@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// About/mission page — helps judges (and any user) quickly understand
-/// what the app does and why, without digging through the UI.
+// About page.
 struct InfoView: View {
 @EnvironmentObject var appState: AppState
 @Environment(\.dismiss) private var dismiss
@@ -15,20 +14,20 @@ heroSection
 
 InfoSection(
 icon: "leaf.fill",
-title: "What is EcoGarden?",
-text: "EcoGarden turns everyday good — recycling, composting, saving water, volunteering — into a living community. Look after the planet and your garden grows. Volunteer around Baytown and the places on your street get built. Stop showing up and they go quiet."
+title: "What is Rooted?",
+text: "Rooted turns the good stuff you already do, like recycling, composting, saving water and volunteering, into a community you can watch grow. Take care of the planet and your garden grows. Volunteer around Baytown and the places on your street get built. Stop showing up and they go quiet."
 )
 
 InfoSection(
 icon: "checkmark.circle.fill",
 title: "How it works",
-text: "Complete eco tasks in the Do Good tab to earn coins — you can repeat tasks daily for a growing bonus, and attach a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt.\n\nIn Do Good → Volunteer, log hours at real Baytown organizations. Each kind of volunteering builds a place on the street behind your yard — an animal shelter, library, nature center, food bank and neighborhood — from an empty lot up to a thriving building. A place stays lively for two weeks after you last volunteered for it.\n\nThe two halves work together: your eco habits add green upgrades to the same street — bike racks, recycling bins, a community garden — and every eco task and volunteer hour fills one Community Level that adds trees, streetlights, flags and a festival. Each week there's a challenge that needs both."
+text: "Do eco tasks in the Do Good tab to earn coins. You can repeat a task the same day for a bigger bonus, and add a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt.\n\nIn the Volunteer section of Do Good, you can log hours at real Baytown organizations. Each kind of volunteering builds one place on the street behind your yard: an animal shelter, a library, a nature center, a food bank or a neighborhood. Each one starts as an empty lot and grows into a busy building. A place stays lively for two weeks after you last volunteered for it.\n\nBoth sides add up together. Your eco habits put green upgrades on the same street, like bike racks, recycling bins and a community garden. Every eco task and volunteer hour also counts toward your Community Level, which adds trees, streetlights, flags and eventually a festival. And every week there's a challenge that takes a bit of both."
 )
 
 InfoSection(
 icon: "flame.fill",
 title: "Streaks",
-text: "Clear every task at least once in a day to earn a bonus and build your streak. Consistency is the whole point — small daily actions compound into a garden (and a habit) that actually grows."
+text: "Do every task at least once in a day to earn a bonus and keep your streak going. Showing up every day is the whole point. Small things done daily turn into a garden, and a habit, that actually grows."
 )
 
 localImpactSection
@@ -44,7 +43,7 @@ accountSection
 InfoSection(
 icon: "info.circle.fill",
 title: "Why it matters",
-text: "Individually small actions — recycling a bottle, composting scraps, biking instead of driving — add up when done consistently. EcoGarden makes that consistency visible and rewarding, instead of invisible and easy to forget."
+text: "Recycling a bottle, composting scraps or biking instead of driving doesn't feel like much on its own, but it adds up when you keep doing it. Rooted lets you actually see that progress instead of forgetting about it."
 )
 }
 .padding(20)
@@ -70,7 +69,7 @@ Image(systemName: "leaf.fill")
 .foregroundColor(Theme.moss)
 .rotationEffect(.degrees(-8))
 }
-Text("EcoGarden")
+Text("Rooted")
 .font(Theme.display(26))
 .foregroundColor(Theme.bark)
 Text("Small acts. A community that grows with you.")
@@ -90,7 +89,7 @@ Text("Local Impact")
 .font(Theme.display(16, weight: .semibold))
 .foregroundColor(Theme.bark)
 }
-Text("EcoGarden is built for Baytown, Texas. Every task points to a real local resource — the city's Green Center, curbside recycling, the Goose Creek Trail, Harris County Transit — and Do Good → Volunteer lists real Baytown programs like the animal shelter, the library's teen volunteers and the wetlands center. Tap a task in Do Good to see its tip and open the official page.")
+Text("Rooted is made for Baytown, Texas. Every task links to something real here, like the city's Green Center, curbside recycling, the Goose Creek Trail and Harris County Transit. The Volunteer section lists real Baytown programs, including the animal shelter, the library's teen volunteers and the wetlands center. Tap a task in Do Good to see its tip and open the official page.")
 .font(Theme.body(13))
 .foregroundColor(Theme.stone)
 .fixedSize(horizontal: false, vertical: true)
@@ -122,8 +121,7 @@ Text("How this is estimated: each walk or bike trip counts as a 2-mile car trip 
 
 private var remindersSection: some View {
 VStack(alignment: .leading, spacing: 10) {
-// The toggle can't write to appState directly, because switching it on has to wait
-// for the system permission prompt — so it goes through setReminders instead.
+// Goes through setReminders because turning it on needs the permission prompt.
 Toggle(isOn: Binding(
 get: { appState.remindersEnabled },
 set: { wantsOn in
@@ -150,11 +148,10 @@ Text("A nudge at 6 PM to finish your tasks, and an alert when something in your 
 .alert("Notifications are turned off", isPresented: $showNotificationsDenied) {
 Button("OK", role: .cancel) { }
 } message: {
-Text("To get reminders, allow notifications for EcoGarden in the Settings app.")
+Text("To get reminders, allow notifications for Rooted in the Settings app.")
 }
 }
 
-// Logging out only locks the app — the garden and progress stay saved on the device.
 private var accountSection: some View {
 VStack(alignment: .leading, spacing: 10) {
 HStack(spacing: 8) {
@@ -195,7 +192,6 @@ StatTile(label: "EcoCoins", value: "\(appState.coins)", icon: "circle.fill", col
 }
 }
 
-/// The four headline impact numbers, shown on the Do Good tab and the About page.
 struct ImpactTiles: View {
 let impact: ImpactSummary
 
@@ -212,7 +208,6 @@ StatTile(label: "Volunteer hours", value: formatHours(impact.volunteerHours), ic
 }
 }
 
-/// One decimal while the number is small, whole numbers after that.
 private static func format(_ value: Double) -> String {
 value < 10 && value != value.rounded() ? String(format: "%.1f", value) : String(format: "%.0f", value)
 }
@@ -263,7 +258,6 @@ Text(label)
 .frame(maxWidth: .infinity)
 .padding(.vertical, 12)
 .ecoCard()
-// Read as one item by VoiceOver ("5.4 lb, CO₂ avoided"), not three separate pieces.
 .accessibilityElement(children: .combine)
 }
 }
