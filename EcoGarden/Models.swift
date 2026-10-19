@@ -72,6 +72,22 @@ extension EcoTaskKind {
     }
 }
 
+// MARK: - Icon colors
+
+extension EcoTaskKind {
+    // Muted so the six sit together without clashing.
+    var tint: Color {
+        switch self {
+        case .recycle: return Color(red: 0.16, green: 0.56, blue: 0.52)
+        case .compost: return Color(red: 0.78, green: 0.42, blue: 0.20)
+        case .reusable: return Color(red: 0.27, green: 0.56, blue: 0.24)
+        case .donate: return Color(red: 0.76, green: 0.32, blue: 0.44)
+        case .water: return Color(red: 0.22, green: 0.47, blue: 0.75)
+        case .travel: return Color(red: 0.46, green: 0.36, blue: 0.70)
+        }
+    }
+}
+
 // MARK: - Habits that tend the garden
 
 // Composting tends Compost Bins, saving water fills Rain Barrels.
@@ -279,11 +295,12 @@ enum VolunteerCategory: String, Codable, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .animals: return Color(red: 0.72, green: 0.30, blue: 0.25)
-        case .library: return Color(red: 0.62, green: 0.40, blue: 0.32)
-        case .nature: return Theme.leaf
-        case .food: return Color(red: 0.40, green: 0.52, blue: 0.66)
-        case .homes: return Color(red: 0.85, green: 0.62, blue: 0.28)
+        // Same muted family as the eco habit colors.
+        case .animals: return Color(red: 0.70, green: 0.36, blue: 0.33)
+        case .library: return Color(red: 0.47, green: 0.40, blue: 0.64)
+        case .nature: return Color(red: 0.31, green: 0.54, blue: 0.29)
+        case .food: return Color(red: 0.72, green: 0.41, blue: 0.25)
+        case .homes: return Color(red: 0.29, green: 0.47, blue: 0.68)
         }
     }
 

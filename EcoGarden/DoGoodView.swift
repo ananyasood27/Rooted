@@ -8,17 +8,27 @@ struct DoGoodView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(greeting)
+                            .font(Theme.heading(24))
+                            .foregroundColor(.white)
+                        Text("What will you do for Baytown today?")
+                            .font(Theme.body(14))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+
+                    // Kept small so the tasks show without scrolling; full details are in the sheet.
+                    HStack(spacing: 10) {
+                        CommunityLevelTile { showLevels = true }
+                        WeeklyChallengeTile { showLevels = true }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                .greenHeader()
+
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(greeting)
-                        .font(Theme.body(14))
-                        .foregroundColor(Theme.stone)
-                        .padding(.bottom, -12)
-
-                    CommunityLevelCard { showLevels = true }
-                    WeeklyChallengeCard()
-
                     segmentSwitch
-                        .padding(.top, 4)
 
                     switch appState.doGoodSegment {
                     case .habits: HabitsSection()
@@ -31,24 +41,23 @@ struct DoGoodView: View {
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 8)
+                .padding(.top, 18)
                 .padding(.bottom, 28)
             }
-            .background(
-                LinearGradient(colors: [Theme.skyWash, Theme.sage.opacity(0.12)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
-            )
+            .background(ScreenBackground())
+            .greenNavigationBar()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                HeaderToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { showInfo = true }) {
                         Image(systemName: "info.circle")
-                            .foregroundColor(Theme.moss)
+                            .font(.system(size: 19))
+                            .foregroundColor(.white.opacity(0.9))
                     }
                     .accessibilityLabel("About Rooted")
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    CoinBadge(amount: appState.coins)
+                HeaderToolbarItem(placement: .navigationBarTrailing) {
+                    CoinBadge(amount: appState.coins, onDark: true)
                 }
             }
             .sheet(isPresented: $showInfo) {
@@ -64,7 +73,7 @@ struct DoGoodView: View {
         let name = appState.userName.isEmpty ? "there" : appState.userName
         let hour = Calendar.current.component(.hour, from: Date())
         let time = hour < 12 ? "Morning" : (hour < 18 ? "Afternoon" : "Evening")
-        return "Good \(time), \(name)"
+        return "Good \(time.lowercased()), \(name)"
     }
 
     private var segmentSwitch: some View {
@@ -93,51 +102,99 @@ struct DoGoodView: View {
     }
 }
 
-// MARK: - Community level card
+// MARK: - Summary tiles
 
-struct CommunityLevelCard: View {
+struct CommunityLevelTile: View {
     @EnvironmentObject var appState: AppState
     let onTap: () -> Void
 
     var body: some View {
         let points = appState.communityPoints
         let level = CommunityLevel.level(forPoints: points)
-        let tasksDone = appState.lifetimeCompletions.values.reduce(0, +)
-        let hours = appState.volunteerLog.reduce(0) { $0 + $1.hours }
 
         Button(action: onTap) {
-            HStack(spacing: 14) {
-                LevelRing(level: level, progress: CommunityLevel.progress(forPoints: points), size: 54)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("COMMUNITY LEVEL")
-                        .font(Theme.caption(10))
-                        .foregroundColor(Theme.stone)
-                        .tracking(0.8)
+            HStack(spacing: 10) {
+                LevelRing(level: level, progress: CommunityLevel.progress(forPoints: points), size: 34, light: true)
+                VStack(alignment: .leading, spacing: 1) {
                     Text(CommunityLevel.names[level])
-                        .font(Theme.display(18, weight: .semibold))
-                        .foregroundColor(Theme.bark)
-                    Text("\(tasksDone) eco tasks and \(formatHours(hours)) volunteer hours, \(points) points total")
-                        .font(Theme.body(12))
-                        .foregroundColor(Theme.stone)
-                    if let remaining = CommunityLevel.pointsToNextLevel(from: points) {
-                        Text("\(remaining) more points to reach \(CommunityLevel.names[level + 1]), which adds \(CommunityLevel.unlocks[level + 1].lowercased())")
-                            .font(Theme.caption(11))
-                            .foregroundColor(Theme.moss)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                        .font(Theme.display(13.5))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                    Text(CommunityLevel.pointsToNextLevel(from: points).map { "\($0) pts to next level" } ?? "Top level reached")
+                        .font(Theme.body(11))
+                        .opacity(0.7)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
+                .foregroundColor(.white)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Theme.stone)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .ecoCard()
+            .summaryTile()
         }
         .buttonStyle(.plain)
-        .accessibilityHint("Shows what each level unlocks")
+        .accessibilityHint("Shows your community level and what each level unlocks")
+    }
+}
+
+struct WeeklyChallengeTile: View {
+    @EnvironmentObject var appState: AppState
+    let onTap: () -> Void
+
+    var body: some View {
+        let challenge = appState.weeklyChallenge
+        let done = appState.weeklyChallengeDone
+        let tasks = appState.ecoTasksThisWeek
+        let hours = appState.volunteerHoursThisWeek
+
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    if done {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Theme.sunflower)
+                    }
+                    Text(done ? "Challenge done" : "Weekly challenge")
+                        .font(Theme.display(13.5))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                // One bar: both halves count equally.
+                miniBar(progress: (min(Double(tasks) / Double(challenge.ecoGoal), 1) + min(hours / challenge.hoursGoal, 1)) / 2)
+                Text("\(min(tasks, challenge.ecoGoal))/\(challenge.ecoGoal) tasks · \(formatHours(min(hours, challenge.hoursGoal)))/\(formatHours(challenge.hoursGoal)) hrs")
+                    .font(Theme.body(11))
+                    .foregroundColor(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .summaryTile()
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Shows this week's challenge")
+    }
+
+    private func miniBar(progress: Double) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.2))
+                Capsule().fill(Theme.sunflower).frame(width: geo.size.width * min(max(progress, 0), 1))
+            }
+        }
+        .frame(height: 4)
+    }
+}
+
+private extension View {
+    // Lighter shade of the header green, so the header stays one color.
+    func summaryTile() -> some View {
+        padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.1))
+            )
     }
 }
 
@@ -146,6 +203,7 @@ struct LevelRing: View {
     let progress: Double
     var size: CGFloat = 54
     var light = false
+    var accent: Color = Theme.sunflower
 
     var body: some View {
         ZStack {
@@ -153,7 +211,7 @@ struct LevelRing: View {
                 .stroke((light ? Color.white : Theme.sage).opacity(0.3), lineWidth: size * 0.1)
             Circle()
                 .trim(from: 0, to: max(0.02, progress))
-                .stroke(Theme.sunflower, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
+                .stroke(accent, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text("\(level + 1)")
                 .font(Theme.display(size * 0.4, weight: .bold))
@@ -200,15 +258,13 @@ struct WeeklyChallengeCard: View {
                 title: "Eco tasks",
                 icon: "leaf.fill",
                 value: "\(min(tasks, challenge.ecoGoal))/\(challenge.ecoGoal)",
-                progress: Double(tasks) / Double(challenge.ecoGoal),
-                color: Theme.moss
+                progress: Double(tasks) / Double(challenge.ecoGoal)
             )
             challengeBar(
                 title: "Volunteer hours",
                 icon: "hand.raised.fill",
                 value: "\(formatHours(min(hours, challenge.hoursGoal)))/\(formatHours(challenge.hoursGoal))",
-                progress: hours / challenge.hoursGoal,
-                color: Theme.petal
+                progress: hours / challenge.hoursGoal
             )
 
             HStack(spacing: 6) {
@@ -222,18 +278,10 @@ struct WeeklyChallengeCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .fill(done ? Theme.sunflower.opacity(0.12) : Theme.card)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(done ? Theme.sunflower.opacity(0.5) : Theme.sage.opacity(0.25), lineWidth: 1)
-        )
-        .shadow(color: Theme.bark.opacity(0.05), radius: 8, y: 3)
+        .ecoCard()
     }
 
-    private func challengeBar(title: String, icon: String, value: String, progress: Double, color: Color) -> some View {
+    private func challengeBar(title: String, icon: String, value: String, progress: Double) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Label(title, systemImage: icon)
@@ -246,9 +294,9 @@ struct WeeklyChallengeCard: View {
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.sage.opacity(0.25))
+                    Capsule().fill(Theme.forest.opacity(0.08))
                     Capsule()
-                        .fill(color)
+                        .fill(Theme.sunflower)
                         .frame(width: geo.size.width * min(max(progress, 0), 1))
                 }
             }
@@ -271,6 +319,8 @@ struct CommunityLevelSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    WeeklyChallengeCard()
+
                     HStack(spacing: 16) {
                         LevelRing(level: level, progress: CommunityLevel.progress(forPoints: points), size: 64)
                         VStack(alignment: .leading, spacing: 2) {
@@ -323,7 +373,7 @@ struct CommunityLevelSheet: View {
                 }
                 .padding(20)
             }
-            .background(Theme.skyWash.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Your Community")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

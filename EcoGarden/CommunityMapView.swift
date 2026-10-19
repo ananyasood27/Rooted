@@ -161,13 +161,7 @@ private struct PlaceCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    Circle().fill(place.color.opacity(0.15))
-                    Image(systemName: place.icon)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(place.color)
-                }
-                .frame(width: 40, height: 40)
+                IconTile(systemName: place.icon, tint: place.color, size: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kindLabel.uppercased())
                         .font(Theme.caption(10))

@@ -18,8 +18,7 @@ struct WelcomeView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Theme.skyWash, Theme.sage.opacity(0.18)], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
+            ScreenBackground()
 
             // Scrollable so the fields stay reachable when the keyboard is up.
             ScrollView {
@@ -44,23 +43,6 @@ struct WelcomeView: View {
             // Keeps the name of anyone who used the app before logins.
             if name.isEmpty { name = appState.userName }
         }
-        .confirmationDialog(
-            "Reset this device's account?",
-            isPresented: $showResetConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Erase Account and Garden", role: .destructive) {
-                appState.resetEverything()
-                password = ""
-                username = ""
-                name = ""
-                errorMessage = nil
-                mode = .signUp
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Passwords can't be recovered because the account only exists on this device. Resetting erases the garden, coins and progress so you can start again.")
-        }
     }
 
     private var hero: some View {
@@ -77,7 +59,7 @@ struct WelcomeView: View {
             .padding(.bottom, 18)
 
             Text("Rooted")
-                .font(Theme.display(32))
+                .font(Theme.heading(32))
                 .foregroundColor(Theme.bark)
 
             Text("Small acts. A community that grows with you.")
@@ -138,6 +120,24 @@ struct WelcomeView: View {
             Button("Forgot password?") { showResetConfirm = true }
                 .font(Theme.caption(13))
                 .foregroundColor(Theme.moss)
+                // Attached to the button so iOS 26 anchors the dialog here, not mid-screen.
+                .confirmationDialog(
+                    "Reset this device's account?",
+                    isPresented: $showResetConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("Erase Account and Garden", role: .destructive) {
+                        appState.resetEverything()
+                        password = ""
+                        username = ""
+                        name = ""
+                        errorMessage = nil
+                        mode = .signUp
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("Passwords can't be recovered because the account only exists on this device. Resetting erases the garden, coins and progress so you can start again.")
+                }
         }
     }
 

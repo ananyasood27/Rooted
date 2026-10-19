@@ -92,7 +92,7 @@ struct VolunteerSection: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Volunteer")
-                .font(Theme.display(22))
+                .font(Theme.heading(22))
                 .foregroundColor(Theme.bark)
             Text("Help out around Baytown. Every hour you give builds a place on your community's street.")
                 .font(Theme.body(14))
@@ -269,13 +269,7 @@ struct CategoryBadge: View {
     var size: CGFloat = 40
 
     var body: some View {
-        ZStack {
-            Circle().fill(category.color.opacity(0.15))
-            Image(systemName: category.icon)
-                .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundColor(category.color)
-        }
-        .frame(width: size, height: size)
+        IconTile(systemName: category.icon, tint: category.color, size: size)
     }
 }
 
@@ -402,7 +396,7 @@ private struct OpportunityCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .ecoCard()
+        .ecoCard(tint: opportunity.category.color)
     }
 }
 
@@ -489,7 +483,7 @@ private struct LogHoursSheet: View {
                 }
                 .padding(20)
             }
-            .background(Theme.skyWash.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Log volunteering")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -547,7 +541,7 @@ private struct LogHoursSheet: View {
                 .tracking(0.5)
             HStack {
                 Text("\(formatHours(hours)) \(hours == 1 ? "hour" : "hours")")
-                    .font(Theme.display(22))
+                    .font(Theme.heading(22))
                     .foregroundColor(Theme.bark)
                 Spacer()
                 Stepper("Hours", value: $hours, in: 0.5...8, step: 0.5)
@@ -718,7 +712,7 @@ struct VolunteerHistoryView: View {
                 }
                 .padding(20)
             }
-            .background(Theme.skyWash.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Volunteer History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -748,7 +742,7 @@ struct VolunteerHistoryView: View {
     private func totalItem(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(Theme.display(24, weight: .bold))
+                .font(Theme.heading(24))
                 .foregroundColor(Theme.bark)
             Text(label)
                 .font(Theme.caption(11))

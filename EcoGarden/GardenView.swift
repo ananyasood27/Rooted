@@ -10,7 +10,7 @@ struct GardenView: View {
 
     // 1 = natural size
     @State private var zoom: CGFloat = 1
-    @State private var pinchStartZoom: CGFloat? = nil
+    @State private var pinch: PinchStart? = nil
     @State private var scrollPosition = ScrollPosition()
     @State private var scrollOffset = ScrollOffsetBox()
     // Long-press the title to show.
@@ -72,18 +72,35 @@ struct GardenView: View {
                 .onScrollGeometryChange(for: CGPoint.self) { $0.contentOffset } action: { _, offset in
                     scrollOffset.value = offset
                 }
+                // Stops the scroll view panning under the fingers and fighting the zoom.
+                .scrollDisabled(pinch != nil)
                 .simultaneousGesture(
                     MagnifyGesture()
                         .onChanged { value in
-                            let start = pinchStartZoom ?? scale
-                            pinchStartZoom = start
-                            setZoom(start * value.magnification, from: scale, in: zoomRange, viewport: viewport)
+                            let start = pinch ?? {
+                                // Fixed for the whole pinch so the zoom doesn't chase a lagging scroll offset.
+                                let fingers = CGPoint(x: value.startAnchor.x * viewport.width, y: value.startAnchor.y * viewport.height)
+                                let start = PinchStart(
+                                    zoom: scale,
+                                    fingers: fingers,
+                                    canvasPoint: CGPoint(
+                                        x: (scrollOffset.value.x + fingers.x) / scale,
+                                        y: (scrollOffset.value.y + fingers.y) / scale
+                                    )
+                                )
+                                pinch = start
+                                return start
+                            }()
+                            setZoom(
+                                start.zoom * value.magnification, keeping: start.canvasPoint, at: start.fingers,
+                                in: zoomRange, canvasWidth: canvasWidth, viewport: viewport
+                            )
                         }
-                        .onEnded { _ in pinchStartZoom = nil }
+                        .onEnded { _ in pinch = nil }
                 )
                 .ignoresSafeArea()
 
-                zoomButtons(scale: scale, range: zoomRange, viewport: viewport)
+                zoomButtons(scale: scale, range: zoomRange, canvasWidth: canvasWidth, viewport: viewport)
                     .padding(.trailing, 14)
                     .padding(.bottom, 52)
             }
@@ -160,27 +177,39 @@ struct GardenView: View {
         }
     }
 
-    // Keeps the screen's centre in place while zooming.
-    private func setZoom(_ target: CGFloat, from current: CGFloat, in range: ClosedRange<CGFloat>, viewport: CGSize) {
+    // Zooms so canvasPoint (unscaled) stays at screenPoint, without scrolling past the edges.
+    private func setZoom(
+        _ target: CGFloat, keeping canvasPoint: CGPoint, at screenPoint: CGPoint,
+        in range: ClosedRange<CGFloat>, canvasWidth: CGFloat, viewport: CGSize
+    ) {
         let newZoom = min(max(target, range.lowerBound), range.upperBound)
-        guard newZoom != current else { return }
-        let centerX = (scrollOffset.value.x + viewport.width / 2) / current
-        let centerY = (scrollOffset.value.y + viewport.height / 2) / current
+        let maxX = max(0, canvasWidth * newZoom - viewport.width)
+        let maxY = max(0, canvasHeight * newZoom - viewport.height)
         zoom = newZoom
         scrollPosition.scrollTo(point: CGPoint(
-            x: max(0, centerX * newZoom - viewport.width / 2),
-            y: max(0, centerY * newZoom - viewport.height / 2)
+            x: min(max(canvasPoint.x * newZoom - screenPoint.x, 0), maxX),
+            y: min(max(canvasPoint.y * newZoom - screenPoint.y, 0), maxY)
         ))
     }
 
-    private func zoomButtons(scale: CGFloat, range: ClosedRange<CGFloat>, viewport: CGSize) -> some View {
+    // Keeps the screen's centre in place.
+    private func zoomAroundCenter(by factor: CGFloat, scale: CGFloat, range: ClosedRange<CGFloat>, canvasWidth: CGFloat, viewport: CGSize) {
+        let center = CGPoint(x: viewport.width / 2, y: viewport.height / 2)
+        let canvasPoint = CGPoint(
+            x: (scrollOffset.value.x + center.x) / scale,
+            y: (scrollOffset.value.y + center.y) / scale
+        )
+        setZoom(scale * factor, keeping: canvasPoint, at: center, in: range, canvasWidth: canvasWidth, viewport: viewport)
+    }
+
+    private func zoomButtons(scale: CGFloat, range: ClosedRange<CGFloat>, canvasWidth: CGFloat, viewport: CGSize) -> some View {
         VStack(spacing: 0) {
             zoomButton("plus", enabled: scale < range.upperBound - 0.001, label: "Zoom in") {
-                setZoom(scale * 1.3, from: scale, in: range, viewport: viewport)
+                zoomAroundCenter(by: 1.3, scale: scale, range: range, canvasWidth: canvasWidth, viewport: viewport)
             }
             Rectangle().fill(.white.opacity(0.2)).frame(width: 24, height: 1)
             zoomButton("minus", enabled: scale > range.lowerBound + 0.001, label: "Zoom out") {
-                setZoom(scale / 1.3, from: scale, in: range, viewport: viewport)
+                zoomAroundCenter(by: 1 / 1.3, scale: scale, range: range, canvasWidth: canvasWidth, viewport: viewport)
             }
         }
         .background(Capsule().fill(.black.opacity(0.35)))
@@ -280,6 +309,12 @@ struct GardenView: View {
     }
 }
 
+private struct PinchStart {
+    let zoom: CGFloat
+    let fingers: CGPoint     // on screen
+    let canvasPoint: CGPoint // unscaled canvas point under the fingers
+}
+
 // Reference type so scroll tracking doesn't cause redraws.
 private final class ScrollOffsetBox {
     var value: CGPoint = .zero
@@ -288,8 +323,8 @@ private final class ScrollOffsetBox {
 private struct EmptyYardCard: View {
     var body: some View {
         VStack(spacing: 8) {
-            Text("🌱")
-                .font(.system(size: 34))
+            IconTile(systemName: "leaf.fill", tint: Theme.forest, size: 40)
+                .padding(.bottom, 2)
             Text("Your yard is empty")
                 .font(Theme.display(16, weight: .semibold))
                 .foregroundColor(Theme.bark)
@@ -301,7 +336,7 @@ private struct EmptyYardCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .fill(.white.opacity(0.85))
+                .fill(Theme.card.opacity(0.95))
         )
         .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
     }

@@ -48,7 +48,7 @@ text: "Recycling a bottle, composting scraps or biking instead of driving doesn'
 }
 .padding(20)
 }
-.background(Theme.skyWash.ignoresSafeArea())
+.background(ScreenBackground())
 .navigationBarTitleDisplayMode(.inline)
 .toolbar {
 ToolbarItem(placement: .navigationBarTrailing) {
@@ -70,7 +70,7 @@ Image(systemName: "leaf.fill")
 .rotationEffect(.degrees(-8))
 }
 Text("Rooted")
-.font(Theme.display(26))
+.font(Theme.heading(26))
 .foregroundColor(Theme.bark)
 Text("Small acts. A community that grows with you.")
 .font(Theme.body(13))
@@ -185,8 +185,8 @@ Text("Log Out")
 
 private var statsSection: some View {
 HStack(spacing: 10) {
-StatTile(label: "Day Streak", value: "\(appState.streak)", icon: "flame.fill", color: Theme.ember)
-StatTile(label: "Planted", value: "\(appState.placedItems.count)", icon: "leaf.fill", color: Theme.moss)
+StatTile(label: "Day Streak", value: "\(appState.streak)", icon: "flame.fill", color: Theme.sunflower)
+StatTile(label: "Planted", value: "\(appState.placedItems.count)", icon: "leaf.fill", color: EcoTaskKind.reusable.tint)
 StatTile(label: "EcoCoins", value: "\(appState.coins)", icon: "circle.fill", color: Theme.sunflower)
 }
 }
@@ -198,12 +198,12 @@ let impact: ImpactSummary
 var body: some View {
 VStack(spacing: 10) {
 HStack(spacing: 10) {
-StatTile(label: "CO₂ avoided", value: "\(Self.format(impact.co2Pounds)) lb", icon: "bicycle", color: Theme.moss)
-StatTile(label: "Water saved", value: "\(Self.format(impact.gallons)) gal", icon: "drop.fill", color: Theme.water)
+StatTile(label: "CO₂ avoided", value: "\(Self.format(impact.co2Pounds)) lb", icon: "bicycle", color: EcoTaskKind.travel.tint)
+StatTile(label: "Water saved", value: "\(Self.format(impact.gallons)) gal", icon: "drop.fill", color: EcoTaskKind.water.tint)
 }
 HStack(spacing: 10) {
-StatTile(label: "Kept from landfill", value: "\(impact.itemsDiverted)", icon: "arrow.3.trianglepath", color: Theme.soil)
-StatTile(label: "Volunteer hours", value: formatHours(impact.volunteerHours), icon: "hand.raised.fill", color: Theme.petal)
+StatTile(label: "Kept from landfill", value: "\(impact.itemsDiverted)", icon: "arrow.3.trianglepath", color: EcoTaskKind.recycle.tint)
+StatTile(label: "Volunteer hours", value: formatHours(impact.volunteerHours), icon: "hand.raised.fill", color: Theme.forest)
 }
 }
 }
@@ -246,10 +246,9 @@ let color: Color
 
 var body: some View {
 VStack(spacing: 6) {
-Image(systemName: icon)
-.foregroundColor(color)
+IconTile(systemName: icon, tint: color, size: 30)
 Text(value)
-.font(Theme.display(18, weight: .bold))
+.font(Theme.display(18))
 .foregroundColor(Theme.bark)
 Text(label)
 .font(Theme.caption(10))
@@ -257,7 +256,7 @@ Text(label)
 }
 .frame(maxWidth: .infinity)
 .padding(.vertical, 12)
-.ecoCard()
+.ecoCard(tint: color)
 .accessibilityElement(children: .combine)
 }
 }

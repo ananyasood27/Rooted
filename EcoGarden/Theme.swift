@@ -5,15 +5,19 @@ enum Theme {
 
     // MARK: - Palette
 
-    static let moss = Color(red: 0.20, green: 0.34, blue: 0.24)
+    // One main color (forest green), one accent (gold, only for progress and coins).
+    // Category colors stay small: icon squares, never whole cards.
+    static let forest = Color(red: 0.12, green: 0.30, blue: 0.21)
+    static let moss = forest
     static let sage = Color(red: 0.60, green: 0.71, blue: 0.56)
     static let soil = Color(red: 0.42, green: 0.32, blue: 0.22)
-    // only for coins/rewards
-    static let sunflower = Color(red: 0.91, green: 0.72, blue: 0.30)
-    static let skyWash = Color(red: 0.93, green: 0.96, blue: 0.92)
-    static let bark = Color(red: 0.14, green: 0.13, blue: 0.10)
-    static let stone = Color(red: 0.45, green: 0.44, blue: 0.40)
-    static let card = Color(red: 0.995, green: 0.99, blue: 0.975)
+    static let sunflower = Color(red: 0.89, green: 0.70, blue: 0.24)
+    // Soft gray-green behind every screen.
+    static let skyWash = Color(red: 0.914, green: 0.933, blue: 0.894)
+    static let bark = Color(red: 0.12, green: 0.15, blue: 0.13)
+    static let stone = Color(red: 0.37, green: 0.42, blue: 0.38)
+    // Base under each card's color wash; brighter than the background so tinted cards still stand out.
+    static let card = Color(red: 0.982, green: 0.986, blue: 0.972)
     static let ember = Color(red: 0.85, green: 0.45, blue: 0.20)
 
     // MARK: - Garden art colors
@@ -35,8 +39,15 @@ enum Theme {
 
     // MARK: - Type roles
 
-    static func display(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+    // Screen titles and greetings.
+    static func heading(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .semibold)
+    }
+
+    // Semibold is the heaviest weight in the app, so nothing shouts.
+    static func display(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        let calm: Font.Weight = [.bold, .heavy, .black].contains(weight) ? .semibold : weight
+        return .system(size: size, weight: calm)
     }
 
     static func body(_ size: CGFloat = 15, weight: Font.Weight = .regular) -> Font {
@@ -44,7 +55,7 @@ enum Theme {
     }
 
     static func caption(_ size: CGFloat = 12) -> Font {
-        .system(size: size, weight: .medium, design: .rounded)
+        .system(size: size, weight: .medium)
     }
 
     // MARK: - Shape language
@@ -55,23 +66,93 @@ enum Theme {
 
 // MARK: - Reusable card style
 
+// Every card carries a faint wash of color: its habit or category color, or soft green.
 struct EcoCard: ViewModifier {
+    var tint: Color = Theme.sage
+
     func body(content: Content) -> some View {
         content
             .background(
                 RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
                     .fill(Theme.card)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                            .fill(tint.opacity(0.09))
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                    .strokeBorder(Theme.sage.opacity(0.25), lineWidth: 1)
+                    .strokeBorder(tint.opacity(0.2), lineWidth: 1)
             )
-            .shadow(color: Theme.bark.opacity(0.05), radius: 8, y: 3)
+    }
+}
+
+// Forest-green block at the top of a tab, shared so every tab opens the same way.
+extension View {
+    func greenHeader() -> some View {
+        padding(.horizontal, 18)
+            .padding(.top, 8)
+            .padding(.bottom, 22)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Extends upward so pulling down past the header still shows green.
+            .background(alignment: .bottom) { Theme.forest.frame(height: 2000) }
+    }
+
+    // Solid green bar so the status bar text turns white.
+    func greenNavigationBar() -> some View {
+        toolbarBackground(Theme.forest, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+}
+
+// iOS 26 wraps toolbar items in a glass bubble that looks muddy on the green header.
+struct HeaderToolbarItem<Content: View>: ToolbarContent {
+    let placement: ToolbarItemPlacement
+    @ViewBuilder let content: () -> Content
+
+    @ToolbarContentBuilder
+    var body: some ToolbarContent {
+        if #available(iOS 26, *) {
+            ToolbarItem(placement: placement, content: content)
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: placement, content: content)
+        }
+    }
+}
+
+struct ScreenBackground: View {
+    var body: some View {
+        Theme.skyWash.ignoresSafeArea()
     }
 }
 
 extension View {
-    func ecoCard() -> some View { modifier(EcoCard()) }
+    func ecoCard(tint: Color = Theme.sage) -> some View { modifier(EcoCard(tint: tint)) }
+}
+
+// MARK: - Icon tile
+
+// One style for every icon badge: softly tinted square, colored symbol.
+struct IconTile: View {
+    let systemName: String
+    let tint: Color
+    var size: CGFloat = 44
+    var muted = false
+
+    var body: some View {
+        let color = muted ? Theme.stone : tint
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(color.opacity(0.16))
+            Image(systemName: systemName)
+                .font(.system(size: size * 0.4, weight: .semibold))
+                .foregroundStyle(color)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
 }
 
 // MARK: - Shared controls
@@ -80,10 +161,9 @@ struct SectionLabel: View {
     let text: String
 
     var body: some View {
-        Text(text.uppercased())
-            .font(Theme.caption(11))
-            .foregroundColor(Theme.stone)
-            .tracking(1)
+        Text(text)
+            .font(Theme.display(17))
+            .foregroundColor(Theme.bark)
             .padding(.leading, 2)
     }
 }
@@ -147,23 +227,27 @@ struct EcoPrimaryButtonStyle: ButtonStyle {
 
 struct CoinBadge: View {
     let amount: Int
+    // On the green header
+    var onDark = false
 
     var body: some View {
         HStack(spacing: 5) {
             Circle()
                 .fill(Theme.sunflower)
-                .frame(width: 18, height: 18)
+                .frame(width: 16, height: 16)
                 .overlay(
                     Image(systemName: "leaf.fill")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(Theme.moss)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(Theme.forest)
                 )
             Text("\(amount)")
-                .font(Theme.display(15, weight: .semibold))
-                .foregroundColor(Theme.bark)
+                .font(Theme.display(15))
+                .foregroundColor(onDark ? .white : Theme.bark)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Capsule().fill(Theme.sunflower.opacity(0.18)))
+        .background(Capsule().fill(onDark ? Color.white.opacity(0.14) : Theme.card))
+        // Toolbar slots can squeeze it without the system bubble around it.
+        .fixedSize()
     }
 }

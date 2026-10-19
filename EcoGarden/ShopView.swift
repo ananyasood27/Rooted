@@ -9,9 +9,9 @@ struct ShopView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
+                header.greenHeader()
 
+                VStack(alignment: .leading, spacing: 18) {
                     SectionLabel(text: "Plants & garden items")
                         .padding(.bottom, -6)
 
@@ -22,20 +22,15 @@ struct ShopView: View {
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 8)
+                .padding(.top, 18)
                 .padding(.bottom, 28)
             }
-            .background(
-                LinearGradient(
-                    colors: [Theme.skyWash, Theme.sunflower.opacity(0.08)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
-            )
+            .background(ScreenBackground())
+            .greenNavigationBar()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    CoinBadge(amount: appState.coins)
+                HeaderToolbarItem(placement: .navigationBarTrailing) {
+                    CoinBadge(amount: appState.coins, onDark: true)
                 }
             }
             .overlay(alignment: .bottom) {
@@ -99,13 +94,13 @@ struct ShopView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             Text("Shop")
-                .font(Theme.display(26))
-                .foregroundColor(Theme.bark)
+                .font(Theme.heading(24))
+                .foregroundColor(.white)
             Text("Spend EcoCoins to grow your garden.")
                 .font(Theme.body(14))
-                .foregroundColor(Theme.stone)
+                .foregroundColor(.white.opacity(0.7))
         }
     }
 }
@@ -118,6 +113,16 @@ private struct ShopItemCard: View {
     @State private var justBought = false
 
     private var canAfford: Bool { appState.coins >= item.cost }
+
+    // App palette versions of the item's color, so the shop matches the task cards.
+    private var cardTint: Color {
+        switch item.tintColor {
+        case "yellow": return Theme.sunflower
+        case "brown": return EcoTaskKind.compost.tint
+        case "blue": return EcoTaskKind.water.tint
+        default: return EcoTaskKind.reusable.tint
+        }
+    }
 
     private var previewScale: CGFloat {
         let art = item.kind.footprint(stage: 3)
@@ -170,7 +175,7 @@ private struct ShopItemCard: View {
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity)
-        .ecoCard()
+        .ecoCard(tint: cardTint)
         .scaleEffect(justBought ? 1.05 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.5), value: justBought)
     }
