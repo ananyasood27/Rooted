@@ -2,265 +2,265 @@ import SwiftUI
 
 // About page.
 struct InfoView: View {
-@EnvironmentObject var appState: AppState
-@Environment(\.dismiss) private var dismiss
-@State private var showNotificationsDenied = false
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var showNotificationsDenied = false
 
-var body: some View {
-NavigationStack {
-ScrollView {
-VStack(alignment: .leading, spacing: 22) {
-heroSection
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    heroSection
 
-InfoSection(
-icon: "leaf.fill",
-title: "What is Rooted?",
-text: "Rooted turns the good stuff you already do, like recycling, composting, saving water and volunteering, into a community you can watch grow. Take care of the planet and your garden grows. Volunteer around Baytown and the places on your street get built. Stop showing up and they go quiet."
-)
+                    InfoSection(
+                        icon: "leaf.fill",
+                        title: "What is Rooted?",
+                        text: "Rooted turns the good stuff you already do, like recycling, composting, saving water and volunteering, into a community you can watch grow. Take care of the planet and your garden grows. Volunteer around Baytown and the places on your street get built. Stop showing up and they go quiet."
+                    )
 
-InfoSection(
-icon: "checkmark.circle.fill",
-title: "How it works",
-text: "Do eco tasks in the Do Good tab to earn coins. You can repeat a task the same day for a bigger bonus, and add a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt.\n\nIn the Volunteer section of Do Good, you can log hours at real Baytown organizations. Each kind of volunteering builds one place on the street behind your yard: an animal shelter, a library, a nature center, a food bank or a neighborhood. Each one starts as an empty lot and grows into a busy building. A place stays lively for two weeks after you last volunteered for it.\n\nBoth sides add up together. Your eco habits put green upgrades on the same street, like bike racks, recycling bins and a community garden. Every eco task and volunteer hour also counts toward your Community Level, which adds trees, streetlights, flags and eventually a festival. And every week there's a challenge that takes a bit of both."
-)
+                    InfoSection(
+                        icon: "checkmark.circle.fill",
+                        title: "How it works",
+                        text: "Do eco tasks in the Do Good tab to earn coins. You can repeat a task the same day for a bigger bonus, and add a photo as proof. Spend coins in the Shop on plants and garden items, then drag them anywhere in your yard. Everything grows through four levels when you look after it: water plants, turn compost, fill rain barrels and feed butterflies. Composting and saving water in real life tend your Compost Bins and Rain Barrels for free. Leave the garden alone too long and it starts to wilt.\n\nIn the Volunteer section of Do Good, you can log hours at real Baytown organizations. Each kind of volunteering builds one place on the street behind your yard: an animal shelter, a library, a nature center, a food bank or a neighborhood. Each one starts as an empty lot and grows into a busy building. A place stays lively for two weeks after you last volunteered for it.\n\nBoth sides add up together. Your eco habits put green upgrades on the same street, like bike racks, recycling bins and a community garden. Every eco task and volunteer hour also counts toward your Community Level, which adds trees, streetlights, flags and eventually a festival. And every week there's a challenge that takes a bit of both."
+                    )
 
-InfoSection(
-icon: "flame.fill",
-title: "Streaks",
-text: "Do every task at least once in a day to earn a bonus and keep your streak going. Showing up every day is the whole point. Small things done daily turn into a garden, and a habit, that actually grows."
-)
+                    InfoSection(
+                        icon: "flame.fill",
+                        title: "Streaks",
+                        text: "Do every task at least once in a day to earn a bonus and keep your streak going. Showing up every day is the whole point. Small things done daily turn into a garden, and a habit, that actually grows."
+                    )
 
-localImpactSection
+                    localImpactSection
 
-impactSection
+                    impactSection
 
-statsSection
+                    statsSection
 
-remindersSection
+                    remindersSection
 
-accountSection
+                    accountSection
 
-InfoSection(
-icon: "info.circle.fill",
-title: "Why it matters",
-text: "Recycling a bottle, composting scraps or biking instead of driving doesn't feel like much on its own, but it adds up when you keep doing it. Rooted lets you actually see that progress instead of forgetting about it."
-)
-}
-.padding(20)
-}
-.background(ScreenBackground())
-.navigationBarTitleDisplayMode(.inline)
-.toolbar {
-ToolbarItem(placement: .navigationBarTrailing) {
-Button("Done") { dismiss() }
-.foregroundColor(Theme.moss)
-.fontWeight(.semibold)
-}
-}
-}
-}
+                    InfoSection(
+                        icon: "info.circle.fill",
+                        title: "Why it matters",
+                        text: "Recycling a bottle, composting scraps or biking instead of driving doesn't feel like much on its own, but it adds up when you keep doing it. Rooted lets you actually see that progress instead of forgetting about it."
+                    )
+                }
+                .padding(20)
+            }
+            .background(ScreenBackground())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Theme.moss)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
 
-private var heroSection: some View {
-VStack(spacing: 10) {
-ZStack {
-Circle().fill(Theme.moss.opacity(0.10)).frame(width: 84, height: 84)
-Image(systemName: "leaf.fill")
-.font(.system(size: 34))
-.foregroundColor(Theme.moss)
-.rotationEffect(.degrees(-8))
-}
-Text("Rooted")
-.font(Theme.heading(26))
-.foregroundColor(Theme.bark)
-Text("Small acts. A community that grows with you.")
-.font(Theme.body(13))
-.foregroundColor(Theme.stone)
-}
-.frame(maxWidth: .infinity)
-.padding(.bottom, 4)
-}
+    private var heroSection: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle().fill(Theme.moss.opacity(0.10)).frame(width: 84, height: 84)
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 34))
+                    .foregroundColor(Theme.moss)
+                    .rotationEffect(.degrees(-8))
+            }
+            Text("Rooted")
+                .font(Theme.heading(26))
+                .foregroundColor(Theme.bark)
+            Text("Small acts. A community that grows with you.")
+                .font(Theme.body(13))
+                .foregroundColor(Theme.stone)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 4)
+    }
 
-private var localImpactSection: some View {
-VStack(alignment: .leading, spacing: 10) {
-HStack(spacing: 8) {
-Image(systemName: "mappin.and.ellipse")
-.foregroundColor(Theme.moss)
-Text("Local Impact")
-.font(Theme.display(16, weight: .semibold))
-.foregroundColor(Theme.bark)
-}
-Text("Rooted is made for Baytown, Texas. Every task links to something real here, like the city's Green Center, curbside recycling, the Goose Creek Trail and Harris County Transit. The Volunteer section lists real Baytown programs, including the animal shelter, the library's teen volunteers and the wetlands center. Tap a task in Do Good to see its tip and open the official page.")
-.font(Theme.body(13))
-.foregroundColor(Theme.stone)
-.fixedSize(horizontal: false, vertical: true)
-}
-.padding(16)
-.frame(maxWidth: .infinity, alignment: .leading)
-.ecoCard()
-}
+    private var localImpactSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "mappin.and.ellipse")
+                    .foregroundColor(Theme.moss)
+                Text("Local Impact")
+                    .font(Theme.display(16, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+            }
+            Text("Rooted is made for Baytown, Texas. Every task links to something real here, like the city's Green Center, curbside recycling, the Goose Creek Trail and Harris County Transit. The Volunteer section lists real Baytown programs, including the animal shelter, the library's teen volunteers and the wetlands center. Tap a task in Do Good to see its tip and open the official page.")
+                .font(Theme.body(13))
+                .foregroundColor(Theme.stone)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ecoCard()
+    }
 
-private var impactSection: some View {
-VStack(alignment: .leading, spacing: 10) {
-HStack(spacing: 8) {
-Image(systemName: "globe.americas.fill")
-.foregroundColor(Theme.moss)
-Text("Your Impact")
-.font(Theme.display(16, weight: .semibold))
-.foregroundColor(Theme.bark)
-}
-ImpactTiles(impact: appState.impact)
-Text("How this is estimated: each walk or bike trip counts as a 2-mile car trip avoided, at the EPA's average of about 400 grams of CO₂ per mile. Each water task counts as a shower 2 minutes shorter, at the federal standard showerhead flow of 2.5 gallons per minute (EPA WaterSense). Recycling, composting, reusing and donating each count as one item kept out of the landfill.")
-.font(Theme.body(11.5))
-.foregroundColor(Theme.stone)
-.fixedSize(horizontal: false, vertical: true)
-}
-.padding(16)
-.frame(maxWidth: .infinity, alignment: .leading)
-.ecoCard()
-}
+    private var impactSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "globe.americas.fill")
+                    .foregroundColor(Theme.moss)
+                Text("Your Impact")
+                    .font(Theme.display(16, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+            }
+            ImpactTiles(impact: appState.impact)
+            Text("How this is estimated: each walk or bike trip counts as a 2-mile car trip avoided, at the EPA's average of about 400 grams of CO₂ per mile. Each water task counts as a shower 2 minutes shorter, at the federal standard showerhead flow of 2.5 gallons per minute (EPA WaterSense). Recycling, composting, reusing and donating each count as one item kept out of the landfill.")
+                .font(Theme.body(11.5))
+                .foregroundColor(Theme.stone)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ecoCard()
+    }
 
-private var remindersSection: some View {
-VStack(alignment: .leading, spacing: 10) {
-// Goes through setReminders because turning it on needs the permission prompt.
-Toggle(isOn: Binding(
-get: { appState.remindersEnabled },
-set: { wantsOn in
-appState.setReminders(wantsOn, denied: { showNotificationsDenied = true })
-}
-)) {
-HStack(spacing: 8) {
-Image(systemName: "bell.fill")
-.foregroundColor(Theme.moss)
-Text("Reminders")
-.font(Theme.display(16, weight: .semibold))
-.foregroundColor(Theme.bark)
-}
-}
-.tint(Theme.moss)
-Text("A nudge at 6 PM to finish your tasks, and an alert when something in your garden needs care.")
-.font(Theme.body(13))
-.foregroundColor(Theme.stone)
-.fixedSize(horizontal: false, vertical: true)
-}
-.padding(16)
-.frame(maxWidth: .infinity, alignment: .leading)
-.ecoCard()
-.alert("Notifications are turned off", isPresented: $showNotificationsDenied) {
-Button("OK", role: .cancel) { }
-} message: {
-Text("To get reminders, allow notifications for Rooted in the Settings app.")
-}
-}
+    private var remindersSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // uses setReminders since turning it on has to ask for permission
+            Toggle(isOn: Binding(
+                get: { appState.remindersEnabled },
+                set: { wantsOn in
+                    appState.setReminders(wantsOn, denied: { showNotificationsDenied = true })
+                }
+            )) {
+                HStack(spacing: 8) {
+                    Image(systemName: "bell.fill")
+                        .foregroundColor(Theme.moss)
+                    Text("Reminders")
+                        .font(Theme.display(16, weight: .semibold))
+                        .foregroundColor(Theme.bark)
+                }
+            }
+            .tint(Theme.moss)
+            Text("A nudge at 6 PM to finish your tasks, and an alert when something in your garden needs care.")
+                .font(Theme.body(13))
+                .foregroundColor(Theme.stone)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ecoCard()
+        .alert("Notifications are turned off", isPresented: $showNotificationsDenied) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("To get reminders, allow notifications for Rooted in the Settings app.")
+        }
+    }
 
-private var accountSection: some View {
-VStack(alignment: .leading, spacing: 10) {
-HStack(spacing: 8) {
-Image(systemName: "person.crop.circle.fill")
-.foregroundColor(Theme.moss)
-Text("Account")
-.font(Theme.display(16, weight: .semibold))
-.foregroundColor(Theme.bark)
-}
-Text("Signed in as \(AccountStore.load()?.username ?? appState.userName). Your account and garden are stored only on this device.")
-.font(Theme.body(13))
-.foregroundColor(Theme.stone)
-.fixedSize(horizontal: false, vertical: true)
-Button {
-dismiss()
-appState.logOut()
-} label: {
-Text("Log Out")
-.font(Theme.display(14, weight: .semibold))
-.foregroundColor(Theme.ember)
-.padding(.horizontal, 16)
-.padding(.vertical, 9)
-.background(Capsule().fill(Theme.ember.opacity(0.12)))
-}
-.buttonStyle(.plain)
-}
-.padding(16)
-.frame(maxWidth: .infinity, alignment: .leading)
-.ecoCard()
-}
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.fill")
+                    .foregroundColor(Theme.moss)
+                Text("Account")
+                    .font(Theme.display(16, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+            }
+            Text("Signed in as \(AccountStore.load()?.username ?? appState.userName). Your account and garden are stored only on this device.")
+                .font(Theme.body(13))
+                .foregroundColor(Theme.stone)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                dismiss()
+                appState.logOut()
+            } label: {
+                Text("Log Out")
+                    .font(Theme.display(14, weight: .semibold))
+                    .foregroundColor(Theme.ember)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(Theme.ember.opacity(0.12)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ecoCard()
+    }
 
-private var statsSection: some View {
-HStack(spacing: 10) {
-StatTile(label: "Day Streak", value: "\(appState.streak)", icon: "flame.fill", color: Theme.sunflower)
-StatTile(label: "Planted", value: "\(appState.placedItems.count)", icon: "leaf.fill", color: EcoTaskKind.reusable.tint)
-StatTile(label: "EcoCoins", value: "\(appState.coins)", icon: "circle.fill", color: Theme.sunflower)
-}
-}
+    private var statsSection: some View {
+        HStack(spacing: 10) {
+            StatTile(label: "Day Streak", value: "\(appState.streak)", icon: "flame.fill", color: Theme.sunflower)
+            StatTile(label: "Planted", value: "\(appState.placedItems.count)", icon: "leaf.fill", color: EcoTaskKind.reusable.tint)
+            StatTile(label: "EcoCoins", value: "\(appState.coins)", icon: "circle.fill", color: Theme.sunflower)
+        }
+    }
 }
 
 struct ImpactTiles: View {
-let impact: ImpactSummary
+    let impact: ImpactSummary
 
-var body: some View {
-VStack(spacing: 10) {
-HStack(spacing: 10) {
-StatTile(label: "CO₂ avoided", value: "\(Self.format(impact.co2Pounds)) lb", icon: "bicycle", color: EcoTaskKind.travel.tint)
-StatTile(label: "Water saved", value: "\(Self.format(impact.gallons)) gal", icon: "drop.fill", color: EcoTaskKind.water.tint)
-}
-HStack(spacing: 10) {
-StatTile(label: "Kept from landfill", value: "\(impact.itemsDiverted)", icon: "arrow.3.trianglepath", color: EcoTaskKind.recycle.tint)
-StatTile(label: "Volunteer hours", value: formatHours(impact.volunteerHours), icon: "hand.raised.fill", color: Theme.forest)
-}
-}
-}
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                StatTile(label: "CO₂ avoided", value: "\(Self.format(impact.co2Pounds)) lb", icon: "bicycle", color: EcoTaskKind.travel.tint)
+                StatTile(label: "Water saved", value: "\(Self.format(impact.gallons)) gal", icon: "drop.fill", color: EcoTaskKind.water.tint)
+            }
+            HStack(spacing: 10) {
+                StatTile(label: "Kept from landfill", value: "\(impact.itemsDiverted)", icon: "arrow.3.trianglepath", color: EcoTaskKind.recycle.tint)
+                StatTile(label: "Volunteer hours", value: formatHours(impact.volunteerHours), icon: "hand.raised.fill", color: Theme.forest)
+            }
+        }
+    }
 
-private static func format(_ value: Double) -> String {
-value < 10 && value != value.rounded() ? String(format: "%.1f", value) : String(format: "%.0f", value)
-}
+    private static func format(_ value: Double) -> String {
+        value < 10 && value != value.rounded() ? String(format: "%.1f", value) : String(format: "%.0f", value)
+    }
 }
 
 private struct InfoSection: View {
-let icon: String
-let title: String
-let text: String // renamed from `body` to avoid conflict with View's `body` property
+    let icon: String
+    let title: String
+    let text: String
 
-var body: some View {
-VStack(alignment: .leading, spacing: 8) {
-HStack(spacing: 8) {
-Image(systemName: icon)
-.foregroundColor(Theme.moss)
-Text(title)
-.font(Theme.display(16, weight: .semibold))
-.foregroundColor(Theme.bark)
-}
-Text(text)
-.font(Theme.body(14))
-.foregroundColor(Theme.stone)
-.fixedSize(horizontal: false, vertical: true)
-}
-.padding(16)
-.frame(maxWidth: .infinity, alignment: .leading)
-.ecoCard()
-}
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(Theme.moss)
+                Text(title)
+                    .font(Theme.display(16, weight: .semibold))
+                    .foregroundColor(Theme.bark)
+            }
+            Text(text)
+                .font(Theme.body(14))
+                .foregroundColor(Theme.stone)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ecoCard()
+    }
 }
 
 private struct StatTile: View {
-let label: String
-let value: String
-let icon: String
-let color: Color
+    let label: String
+    let value: String
+    let icon: String
+    let color: Color
 
-var body: some View {
-VStack(spacing: 6) {
-IconTile(systemName: icon, tint: color, size: 30)
-Text(value)
-.font(Theme.display(18))
-.foregroundColor(Theme.bark)
-Text(label)
-.font(Theme.caption(10))
-.foregroundColor(Theme.stone)
-}
-.frame(maxWidth: .infinity)
-.padding(.vertical, 12)
-.ecoCard(tint: color)
-.accessibilityElement(children: .combine)
-}
+    var body: some View {
+        VStack(spacing: 6) {
+            IconTile(systemName: icon, tint: color, size: 30)
+            Text(value)
+                .font(Theme.display(18))
+                .foregroundColor(Theme.bark)
+            Text(label)
+                .font(Theme.caption(10))
+                .foregroundColor(Theme.stone)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .ecoCard(tint: color)
+        .accessibilityElement(children: .combine)
+    }
 }
 
 #Preview {
-InfoView().environmentObject(AppState())
+    InfoView().environmentObject(AppState())
 }

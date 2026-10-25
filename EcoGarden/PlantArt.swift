@@ -229,7 +229,7 @@ struct PlantPainter {
         }
     }
 
-    // MARK: Flower: sprout -> bud -> bloom -> bouquet
+    // flower: sprout -> bud -> bloom -> bouquet
 
     private func flower(_ stage: Int) {
         let light = foliage(Theme.leafLight)
@@ -248,7 +248,7 @@ struct PlantPainter {
             stem(0, 1, 1, 34, bow: 2, width: 1.8, mid)
             leaf(0.6, 10, angle: -58, length: 14, width: 7, mid)
             leaf(0.8, 16, angle: 60, length: 13, width: 7, dark)
-            // closed bud: green sepals with the petal colour just showing
+            // closed bud: green sepals with a bit of petal color showing
             oval(1, 37, 3.6, 5.5, mid)
             oval(1, 41, 2.2, 3.2, Theme.petal.mix(with: Theme.wilt, by: wilt * 0.6))
         case 2:

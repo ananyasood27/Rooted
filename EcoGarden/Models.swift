@@ -13,7 +13,7 @@ struct EcoTask: Identifiable, Codable {
     var description: String
     var coinReward: Int
     var icon: String // SF Symbol name
-    var localTip: String = "" // ties the task to a real local resource/program
+    var localTip: String = "" // Baytown specific tip
     // Optional so tasks saved by older versions of the app still decode.
     var localURL: String? = nil // official page behind the tip
     var kind: EcoTaskKind? = nil
@@ -27,7 +27,7 @@ struct EcoTask: Identifiable, Codable {
     var proofImageData: Data? = nil
 }
 
-// Starter tasks with Baytown tips (checked Oct 2026, re-check links before submitting).
+// Default tasks. Tips link to real Baytown pages (links checked Oct 2026).
 extension EcoTask {
     static let starterTasks: [EcoTask] = [
         EcoTask(
@@ -59,7 +59,7 @@ extension EcoTask {
 
 // MARK: - Impact estimates
 
-// The About page explains these assumptions, keep them in sync.
+// If you change these, update the explanation on the About page too.
 extension EcoTaskKind {
     // 2-mile car trip at the EPA's ~400 g CO2/mile = ~1.8 lb
     var co2PoundsAvoided: Double { self == .travel ? 1.8 : 0 }
@@ -75,7 +75,7 @@ extension EcoTaskKind {
 // MARK: - Icon colors
 
 extension EcoTaskKind {
-    // Muted so the six sit together without clashing.
+    // toned down so they don't clash next to each other
     var tint: Color {
         switch self {
         case .recycle: return Color(red: 0.16, green: 0.56, blue: 0.52)
@@ -116,7 +116,7 @@ struct ImpactSummary {
     var volunteerHours: Double = 0
 }
 
-// MARK: - Garden Item (shop item the user can buy & place)
+// MARK: - Shop items
 
 enum GardenItemKind: String, Codable {
     case seedling, flower, tree, compostBin, rainBarrel, butterfly, bluebonnet, birdHouse
@@ -210,23 +210,23 @@ extension GardenItem {
     ]
 }
 
-// A placed instance of a GardenItem, positioned freely in the garden.
-// x and y are normalized (0...1) so placement scales with any canvas size.
+// An item that's been placed in the yard.
+// x and y go from 0 to 1 so it works with any screen size.
 struct PlacedItem: Identifiable, Codable {
     var id: UUID = UUID()
     var itemID: UUID
     var x: Double
     var y: Double
-    var rotation: Double = 0 // slight random tilt so items don't look robotically aligned
+    var rotation: Double = 0 // small random tilt so things don't look too lined up
     var scale: Double = 1.0
 
     var plantedDate: Date = Date()
     var lastWateredDate: Date = Date()
-    var careCount: Int = 0 // number of times watered, drives growth stage
+    var careCount: Int = 0 // times watered/tended, decides the growth stage
 }
 
 extension PlacedItem {
-    /// Hours it takes for a fully-watered plant to wilt completely without care.
+    // hours until a plant fully wilts if nobody takes care of it
     static let decayWindowHours: Double = 18.0
 
     // 0...100, from time since last watered.
@@ -330,7 +330,7 @@ struct Opportunity: Identifiable {
     let url: String
 }
 
-// From the City of Baytown, Houston Food Bank and Habitat pages (Oct 2026), re-check before submitting.
+// Info is from the City of Baytown, Houston Food Bank and Habitat websites (Oct 2026).
 extension Opportunity {
     private static let parksPage = "https://baytown.org/1409/Wetlands-Nature-Center-and-Park-Voluntee"
 

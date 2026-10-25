@@ -18,7 +18,7 @@ struct DoGoodView: View {
                             .foregroundColor(.white.opacity(0.7))
                     }
 
-                    // Kept small so the tasks show without scrolling; full details are in the sheet.
+                    // kept small so you can see the tasks. Tap for the full details
                     HStack(spacing: 10) {
                         CommunityLevelTile { showLevels = true }
                         WeeklyChallengeTile { showLevels = true }
@@ -188,7 +188,7 @@ struct WeeklyChallengeTile: View {
 }
 
 private extension View {
-    // Lighter shade of the header green, so the header stays one color.
+    // lighter green so it matches the header
     func summaryTile() -> some View {
         padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

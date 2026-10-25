@@ -193,7 +193,7 @@ class AppState: ObservableObject {
 
     // MARK: - Reminders
 
-    // `denied` runs if notifications aren't allowed.
+    // denied gets called if the user said no to notifications
     func setReminders(_ on: Bool, denied: @escaping () -> Void = {}) {
         guard on else {
             remindersEnabled = false
@@ -253,11 +253,11 @@ class AppState: ObservableObject {
 
     // MARK: - Task actions
 
-    // Reward for the next completion today (combo grows, then caps).
+    // Coins for doing this task again today. Goes up with each repeat until comboCap.
     func nextReward(for task: EcoTask) -> Int {
-    let repeatIndex = max(0, min(task.completionsToday, comboCap)) // clamp to 0...comboCap
-    let bonus = Double(task.coinReward) * comboBonusRate * Double(repeatIndex)
-    return task.coinReward + Int(bonus)
+        let repeatIndex = max(0, min(task.completionsToday, comboCap))
+        let bonus = Double(task.coinReward) * comboBonusRate * Double(repeatIndex)
+        return task.coinReward + Int(bonus)
     }
 
     func completeTask(_ task: EcoTask, proofFile: String?) {
@@ -375,7 +375,7 @@ class AppState: ObservableObject {
         checkProgress()
     }
 
-    // Pays the weekly challenge and announces level-ups (once each).
+    // Checks the weekly challenge and level ups after anything changes.
     private func checkProgress() {
         let challenge = weeklyChallenge
         if !weeklyChallengeDone,

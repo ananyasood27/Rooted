@@ -114,7 +114,7 @@ private struct ShopItemCard: View {
 
     private var canAfford: Bool { appState.coins >= item.cost }
 
-    // App palette versions of the item's color, so the shop matches the task cards.
+    // use the same colors as the task cards
     private var cardTint: Color {
         switch item.tintColor {
         case "yellow": return Theme.sunflower

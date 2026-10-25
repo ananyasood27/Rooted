@@ -36,7 +36,7 @@ struct CommunityMapView: View {
                     .annotationTitles(.hidden)
                 }
             }
-            // Hide Apple's own shops and restaurants so our pins stand out.
+            // hide Apple's restaurants/shops so you can see our pins
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
             .frame(height: 380)
             .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
@@ -64,7 +64,7 @@ struct CommunityMapView: View {
 }
 
 extension CommunityMapView {
-    // Fit Baytown only; including the Houston Food Bank squashes everything else together.
+    // Only fit Baytown. The food bank is in Houston and zooms the map way out
     private var fittingCamera: MapCameraPosition {
         let local = places.filter { $0.longitude > -95.1 }
         guard filter == nil, local.count > 1 else { return .automatic }

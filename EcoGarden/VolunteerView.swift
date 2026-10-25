@@ -492,7 +492,7 @@ private struct LogHoursSheet: View {
                 }
             }
             .onChange(of: photoItem) { _, item in loadPhoto(item) }
-            // A photo picked but never saved would otherwise sit on disk forever.
+            // delete the photo if they cancel, otherwise it stays on the phone
             .onDisappear {
                 if !didSave, let photoFile { ProofStore.delete(named: photoFile) }
             }
@@ -629,7 +629,7 @@ private struct LogHoursSheet: View {
     }
 }
 
-// Every volunteer entry ever logged, with totals. Handy as a service-hours record.
+// All logged volunteer hours with totals. Can be used as a service hours record.
 struct VolunteerHistoryView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss

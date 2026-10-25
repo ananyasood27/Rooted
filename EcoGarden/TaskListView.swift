@@ -49,7 +49,7 @@ struct HabitsSection: View {
                 }
             }
         }
-        // Kept separate from taskPendingPhoto because the picker closes before the selection arrives.
+        // separate from taskPendingPhoto because the picker closes before the photo comes back
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
         .onChange(of: selectedPhotoItem) { _, newItem in
             guard let newItem, let task = taskPendingPhoto else { return }
@@ -248,7 +248,7 @@ private struct TaskRow: View {
                     .foregroundColor(done ? Theme.bark : tint)
                 }
                 .buttonStyle(.plain)
-                // Attached to the button so iOS 26 anchors the dialog here, not at the top of the list.
+                // has to be on the button itself, otherwise on iOS 26 the dialog shows up at the top of the screen
                 .confirmationDialog("Add a photo as proof?", isPresented: $showProofChoice, titleVisibility: .visible) {
                     Button("Attach Photo", action: onAttachPhoto)
                     Button("Mark Complete (No Photo)", action: onCompleteWithoutPhoto)

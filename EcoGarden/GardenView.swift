@@ -72,13 +72,13 @@ struct GardenView: View {
                 .onScrollGeometryChange(for: CGPoint.self) { $0.contentOffset } action: { _, offset in
                     scrollOffset.value = offset
                 }
-                // Stops the scroll view panning under the fingers and fighting the zoom.
+                // turn off scrolling while pinching so the two don't fight
                 .scrollDisabled(pinch != nil)
                 .simultaneousGesture(
                     MagnifyGesture()
                         .onChanged { value in
                             let start = pinch ?? {
-                                // Fixed for the whole pinch so the zoom doesn't chase a lagging scroll offset.
+                                // save where the pinch started, otherwise the zoom drifts
                                 let fingers = CGPoint(x: value.startAnchor.x * viewport.width, y: value.startAnchor.y * viewport.height)
                                 let start = PinchStart(
                                     zoom: scale,
@@ -177,7 +177,7 @@ struct GardenView: View {
         }
     }
 
-    // Zooms so canvasPoint (unscaled) stays at screenPoint, without scrolling past the edges.
+    // Zoom while keeping canvasPoint under screenPoint. Clamped so it can't scroll past the edges.
     private func setZoom(
         _ target: CGFloat, keeping canvasPoint: CGPoint, at screenPoint: CGPoint,
         in range: ClosedRange<CGFloat>, canvasWidth: CGFloat, viewport: CGSize
@@ -192,7 +192,7 @@ struct GardenView: View {
         ))
     }
 
-    // Keeps the screen's centre in place.
+    // for the + and - buttons, zooms around the middle of the screen
     private func zoomAroundCenter(by factor: CGFloat, scale: CGFloat, range: ClosedRange<CGFloat>, canvasWidth: CGFloat, viewport: CGSize) {
         let center = CGPoint(x: viewport.width / 2, y: viewport.height / 2)
         let canvasPoint = CGPoint(
@@ -315,7 +315,7 @@ private struct PinchStart {
     let canvasPoint: CGPoint // unscaled canvas point under the fingers
 }
 
-// Reference type so scroll tracking doesn't cause redraws.
+// class instead of @State so scrolling doesn't redraw everything
 private final class ScrollOffsetBox {
     var value: CGPoint = .zero
 }
@@ -425,7 +425,7 @@ private struct YardBackground: View {
         let horizonY = bleed.height + height * YardGround.horizon
 
         ZStack(alignment: .topLeading) {
-            // Above the yard the sky just carries on in its topmost colour.
+            // Above the yard the sky just carries on in its top color.
             phase.skyColors[0]
 
             LinearGradient(colors: phase.skyColors, startPoint: .top, endPoint: .bottom)
@@ -602,7 +602,7 @@ private struct YardGround: View {
         width * (0.5 + 0.16 * sin(t * 5.0) * (0.25 + 0.75 * t))
     }
 
-    // Wider up close, which sells the depth.
+    // wider at the bottom so it looks like perspective
     private static func laneHalfWidth(_ t: CGFloat) -> CGFloat {
         9 + 30 * t
     }
@@ -987,7 +987,7 @@ private struct DraggablePlant: View {
         }
         .overlay(alignment: .bottom) {
             if isSelected {
-                // Counter-scaled so the card stays the same size on screen at any zoom level.
+                // undo the zoom so the card stays the same size
                 callout
                     .fixedSize()
                     .scaleEffect(1 / zoom, anchor: .bottom)
@@ -1037,8 +1037,7 @@ private struct DraggablePlant: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { onSelect() }
             .gesture(
-                // minimumDistance 0 so a plain, no-movement tap still registers and calls onEnded,
-                // otherwise stationary taps never satisfy a drag gesture and the callout never shows.
+                // minimumDistance has to be 0 or a normal tap never counts and the care menu doesn't open
                 DragGesture(minimumDistance: 0, coordinateSpace: .named(PlantLayer.space))
                     .updating($dragOffset) { value, state, _ in
                         state = value.translation
@@ -1231,7 +1230,7 @@ private struct BuildingLot: View {
             }
             .overlay(alignment: .bottom) {
                 if isSelected {
-                    // Counter-scaled so the card stays the same size on screen at any zoom level.
+                    // undo the zoom so the card stays the same size
                     callout
                         .fixedSize()
                         .scaleEffect(1 / zoom, anchor: .bottom)

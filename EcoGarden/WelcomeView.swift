@@ -7,7 +7,7 @@ struct WelcomeView: View {
     private enum Mode { case signUp, logIn }
     private enum Field { case name, username, password }
 
-    // One account per device: if it already exists, the only thing to do is log in.
+    // only one account per phone, so if there is one just show log in
     @State private var mode: Mode = AccountStore.load() == nil ? .signUp : .logIn
     @State private var name = ""
     @State private var username = ""
@@ -120,7 +120,7 @@ struct WelcomeView: View {
             Button("Forgot password?") { showResetConfirm = true }
                 .font(Theme.caption(13))
                 .foregroundColor(Theme.moss)
-                // Attached to the button so iOS 26 anchors the dialog here, not mid-screen.
+                // same fix as TaskRow, keeps the dialog next to the button
                 .confirmationDialog(
                     "Reset this device's account?",
                     isPresented: $showResetConfirm,

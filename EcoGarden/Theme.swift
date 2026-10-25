@@ -5,18 +5,17 @@ enum Theme {
 
     // MARK: - Palette
 
-    // One main color (forest green), one accent (gold, only for progress and coins).
-    // Category colors stay small: icon squares, never whole cards.
+    // Forest green is the main color. Gold is only for progress bars and coins.
     static let forest = Color(red: 0.12, green: 0.30, blue: 0.21)
     static let moss = forest
     static let sage = Color(red: 0.60, green: 0.71, blue: 0.56)
     static let soil = Color(red: 0.42, green: 0.32, blue: 0.22)
     static let sunflower = Color(red: 0.89, green: 0.70, blue: 0.24)
-    // Soft gray-green behind every screen.
+    // screen background
     static let skyWash = Color(red: 0.914, green: 0.933, blue: 0.894)
     static let bark = Color(red: 0.12, green: 0.15, blue: 0.13)
     static let stone = Color(red: 0.37, green: 0.42, blue: 0.38)
-    // Base under each card's color wash; brighter than the background so tinted cards still stand out.
+    // Card base. Has to be lighter than the background or the green cards disappear.
     static let card = Color(red: 0.982, green: 0.986, blue: 0.972)
     static let ember = Color(red: 0.85, green: 0.45, blue: 0.20)
 
@@ -37,14 +36,14 @@ enum Theme {
     static let berry = Color(red: 0.80, green: 0.20, blue: 0.24)
     static let water = Color(red: 0.36, green: 0.63, blue: 0.86)
 
-    // MARK: - Type roles
+    // MARK: - Fonts
 
-    // Screen titles and greetings.
+    // titles
     static func heading(_ size: CGFloat) -> Font {
         .system(size: size, weight: .semibold)
     }
 
-    // Semibold is the heaviest weight in the app, so nothing shouts.
+    // Bold looked too heavy, so anything bolder than semibold gets capped.
     static func display(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
         let calm: Font.Weight = [.bold, .heavy, .black].contains(weight) ? .semibold : weight
         return .system(size: size, weight: calm)
@@ -58,7 +57,7 @@ enum Theme {
         .system(size: size, weight: .medium)
     }
 
-    // MARK: - Shape language
+    // MARK: - Corner radius
 
     static let cardRadius: CGFloat = 18
     static let controlRadius: CGFloat = 12
@@ -66,7 +65,7 @@ enum Theme {
 
 // MARK: - Reusable card style
 
-// Every card carries a faint wash of color: its habit or category color, or soft green.
+// Cards get a light tint of their habit/category color (sage if there isn't one).
 struct EcoCard: ViewModifier {
     var tint: Color = Theme.sage
 
@@ -87,18 +86,18 @@ struct EcoCard: ViewModifier {
     }
 }
 
-// Forest-green block at the top of a tab, shared so every tab opens the same way.
+// Green header at the top of each tab.
 extension View {
     func greenHeader() -> some View {
         padding(.horizontal, 18)
             .padding(.top, 8)
             .padding(.bottom, 22)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Extends upward so pulling down past the header still shows green.
+            // tall so you still see green when you pull down past the top
             .background(alignment: .bottom) { Theme.forest.frame(height: 2000) }
     }
 
-    // Solid green bar so the status bar text turns white.
+    // needed so the status bar text is white on the green
     func greenNavigationBar() -> some View {
         toolbarBackground(Theme.forest, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -106,7 +105,7 @@ extension View {
     }
 }
 
-// iOS 26 wraps toolbar items in a glass bubble that looks muddy on the green header.
+// On iOS 26 toolbar items get a glass bubble behind them. Looked bad on the green, so this hides it.
 struct HeaderToolbarItem<Content: View>: ToolbarContent {
     let placement: ToolbarItemPlacement
     @ViewBuilder let content: () -> Content
@@ -134,7 +133,7 @@ extension View {
 
 // MARK: - Icon tile
 
-// One style for every icon badge: softly tinted square, colored symbol.
+// Rounded square icon used all over the app.
 struct IconTile: View {
     let systemName: String
     let tint: Color
@@ -227,7 +226,7 @@ struct EcoPrimaryButtonStyle: ButtonStyle {
 
 struct CoinBadge: View {
     let amount: Int
-    // On the green header
+    // true when it's on the green header
     var onDark = false
 
     var body: some View {
@@ -247,7 +246,7 @@ struct CoinBadge: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(Capsule().fill(onDark ? Color.white.opacity(0.14) : Theme.card))
-        // Toolbar slots can squeeze it without the system bubble around it.
+        // without this the toolbar cuts the number off
         .fixedSize()
     }
 }

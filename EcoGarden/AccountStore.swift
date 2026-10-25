@@ -2,7 +2,7 @@ import Foundation
 import Security
 import CryptoKit
 
-// Single local account (no server): username + salted password hash in the Keychain.
+// One account saved on the phone. The password is never stored, only a salted hash in the Keychain.
 enum AccountStore {
     struct Account: Codable {
         var username: String
@@ -34,7 +34,7 @@ enum AccountStore {
 
     @discardableResult
     static func create(username: String, password: String) -> Bool {
-        // A random salt means two people with the same password get different hashes.
+        // random salt so the same password doesn't always give the same hash
         let salt = Data((0..<16).map { _ in UInt8.random(in: .min ... .max) })
         let account = Account(username: username, salt: salt, passwordHash: hash(password, salt: salt))
         guard let data = try? JSONEncoder().encode(account) else { return false }
